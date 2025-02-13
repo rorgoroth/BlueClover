@@ -24,7 +24,8 @@ public class SiteAuthentication {
         CAPTCHA2,
         CAPTCHA2_NOJS,
         GENERIC_WEBVIEW,
-        NEW_CAPTCHA
+        NEW_CAPTCHA,
+        A_FUCKING_WEBVIEW
     }
 
     public static SiteAuthentication fromNone() {
@@ -55,6 +56,11 @@ public class SiteAuthentication {
     public static SiteAuthentication fromNewCaptcha(String baseUrl) {
         SiteAuthentication a = new SiteAuthentication(Type.NEW_CAPTCHA);
         a.baseUrl = baseUrl;
+        return a;
+    }
+
+    public static SiteAuthentication fromInternalWebView() {
+        SiteAuthentication a = new SiteAuthentication(Type.A_FUCKING_WEBVIEW);
         return a;
     }
 

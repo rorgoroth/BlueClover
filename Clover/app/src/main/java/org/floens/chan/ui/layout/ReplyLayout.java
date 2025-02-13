@@ -68,6 +68,7 @@ import org.floens.chan.ui.captcha.AuthenticationLayoutCallback;
 import org.floens.chan.ui.captcha.AuthenticationLayoutInterface;
 import org.floens.chan.ui.captcha.CaptchaLayout;
 import org.floens.chan.ui.captcha.GenericWebViewAuthenticationLayout;
+import org.floens.chan.ui.captcha.InternalWebViewLayout;
 import org.floens.chan.ui.captcha.LegacyCaptchaLayout;
 import org.floens.chan.ui.captcha.NewCaptchaLayout;
 import org.floens.chan.ui.captcha.v1.CaptchaNojsLayoutV1;
@@ -517,6 +518,10 @@ public class ReplyLayout extends LoadView implements
                 }
                 case NEW_CAPTCHA: {
                     authenticationLayout = new NewCaptchaLayout(getContext());
+                    break;
+                }
+                case A_FUCKING_WEBVIEW: {
+                    authenticationLayout = new InternalWebViewLayout(getContext());
                     break;
                 }
                 case NONE:

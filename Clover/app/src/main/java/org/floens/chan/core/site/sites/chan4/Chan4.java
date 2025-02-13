@@ -374,6 +374,8 @@ public class Chan4 extends SiteBase {
                     return SiteAuthentication.fromCaptcha2nojs(CAPTCHA_KEY, "https://boards.4chan.org");
                 case NEWCAPTCHA:
                     return SiteAuthentication.fromNewCaptcha("https://sys.4chan.org");
+                case AFUCKINGWEBVIEW:
+                    return SiteAuthentication.fromInternalWebView();
                 default:
                     throw new IllegalArgumentException();
             }
@@ -398,7 +400,8 @@ public class Chan4 extends SiteBase {
     public enum CaptchaType implements OptionSettingItem {
         V2JS("v2js"),
         V2NOJS("v2nojs"),
-        NEWCAPTCHA("newcaptcha");
+        NEWCAPTCHA("newcaptcha"),
+        AFUCKINGWEBVIEW("afuckingwebview");
 
         String name;
 
@@ -420,7 +423,7 @@ public class Chan4 extends SiteBase {
 
         captchaType = new OptionsSetting<>(settingsProvider,
                 "preference_captcha_type",
-                CaptchaType.class, CaptchaType.NEWCAPTCHA);
+                CaptchaType.class, CaptchaType.AFUCKINGWEBVIEW);
     }
 
     @Override
@@ -429,7 +432,7 @@ public class Chan4 extends SiteBase {
                 SiteSetting.forOption(
                         captchaType,
                         "Captcha type",
-                        Arrays.asList("Javascript", "Noscript", "Slider captcha"))
+                        Arrays.asList("Javascript (deprecated)", "Noscript (deprecated)", "Slider captcha", "Internal WebView"))
         );
     }
 
