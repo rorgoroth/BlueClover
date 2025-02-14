@@ -1,3 +1,6 @@
+New in v3.20 build 20250214_0000
+- Added option to open an internal WebView (see README.md).
+
 New in v3.20 build 20240624_1330
 - Trying to reencode WebPee garbage no longer crashes the app.
 - Replaced Google Images with Google Lens.

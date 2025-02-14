@@ -2,21 +2,29 @@
 
 ---
 
-## DEPRECATION NOTICE
+## THIS APP IS DEPRECATED
 
-On August 25th 2022, 4chan changed the captcha *again*, breaking most third-party apps *again*. At the time of writing this notice, the only app that seems to work correctly is [KurobaEx](https://github.com/K1rakishou/Kuroba-Experimental), which also includes an automatic captcha solver, therefore it's highly recommended to just switch to that app.
+This app was officially abandoned in August 2022 after the introduction of a *second* captcha on 4chan. As you probably already know, it still got a couple more minor updates well into 2024. Alas, in February 2025, and to the surprise of absolutely nobody, 4chan added a *third* captcha on top of the two existing ones, breaking this app again.
 
-A ~~final~~\* update has been released as a last-resort attempt to make Blue Clover usable, but its use is completely discouraged. Some key points about this update:
+**There are no plans to support this new captcha.**
 
-- The Cloudflare cookie is stored only *temporarily*. When you close the app, the cookie is discarded, and the app will try to solve the Cloudflare challenge again the next time you request a captcha. Keep in mind that Cloudflare also forces a new check every time your phone gets a new IP anyway.
-- The challenge is solved using the phone's native WebView. It usually takes 5-20 seconds, but some old versions of Android seem to have problems with it and it might take longer than one minute or even completely refuse to solve the challenge at all. You can try updating Android System WebView, but it's not guaranteed to work.
-- **This version will not work with Android 4.4.** Since the app was specifically created to maintain compatibility with KitKat (see below), this change completely defeated the original purpose of the app and therefore this repository will not be updated again. *For real life.*
+Instead, two different zero-effort workarounds have been added to the last apk:
 
-\***(2023-07-27):** Recent changes to Cloudflare made it impossible to get a captcha with the so-called *final* version mentioned above. For the sake of fighting the establishment, a new option to set a custom User-Agent was added under Settings > Behavior. The default settings *might* work on some devices, but it's not guaranteed that this app can actually post anymore.
+- There's a new default captcha option ("Internal WebView"). This will simply open the current thread on an internal WebView, where you'll be able to solve whatever number of random captchas 4chan has at the time. This WebView uses the internal cookie storage, so successfully making a post is, at the time of writing this, enough to make the previous captcha option work again (tap on 4chan on the list of boards to change your selected captcha).
 
-***See ya!***
+  Please note, however, that this WebView does not interact at all with the rest of the app interface: you can use the comment field for convenience but you'll have to copy and paste your comment manually, you'll have to tap on Back to return after you're done posting, and you'll have to mark your posts as yours manually if you want to receive notifications.
 
-![](docs/2389135.gif)
+  Some specific versions of the Android WebView, such as those used by default in certain emulators, will not work at all and posts will simply disappear without even showing an error. If you experience this problem, try updating your system WebView or changing the User-Agent to that of your version of Chrome.
+
+- Additionally, the former captcha window ("Slider captcha") now has an *invisible* debug button somewhere near the top left corner. Clicking on this *invisible* button will open a prompt allowing the user to interact with the page in case that's your thing. For example, the *4chan_pass* cookie could be set by entering something like this:
+
+  `javascript:document.cookie="4chan_pass=COOKIE_COPIED_FROM_A_BROWSER"`
+
+  This option can also be used to deal with the infamous "persistent bans" by opening the bans page entering its url. Technically it can also be used to load a verification link received by email, although for some reason this causes random cooldowns, so it's not recommended.
+
+Have fun! 🐾
+
+![](docs/829829145484782262.png)
 
 ---
 
@@ -26,19 +34,15 @@ Blue Clover is a fast Android app for browsing 4chan on Android. It adds inline 
 
 The app is based on [Clover-dev 3.0.2 0e32fb7](https://github.com/chandevel/Clover/commit/0e32fb74d5ea4fbfe3248e559e64037bdf9acf17) and some of its more relevant [changes](https://raw.githubusercontent.com/nnuudev/BlueClover/dev/CHANGES.txt) are:
 
-- *New captcha support!*
+- ~~*New captcha support!*~~ Internal WebView
 - Page counter on thread view
 - Board flags support
 - Quick external image attaching
 - Image renaming and reencoding
 - Immersive mode for image gallery
-- External archive support [partial]
-- Alternate layout mode [experimental]
+- Shortcuts to external archives
 
 Some parts of the code were backported from [Kuroba](https://github.com/Adamantcheese/Kuroba) or merged from old [pull requests](https://github.com/chandevel/Clover/pulls?q=is%3Apr), check the [commit log](https://github.com/nnuudev/BlueClover/commits/dev) for proper attribution when applicable.
-
-> *The goal of Blue Clover is to add some extra features to Clover while maintaining compatibility with Android 4.4. It is being distributed with the hope that it will be useful, but it is not meant as a replacement for any existing app. If you are interested in a more professional imageboard browser, please check [KurobaEx](https://github.com/K1rakishou/Kuroba-Experimental), or just [contribute to the original Clover](https://github.com/chandevel/Clover).*
-
 
 ## License
 Blue Clover is [GPLv3](https://github.com/nnuudev/BlueClover/blob/dev/COPYING.txt), [licenses of the used libraries](https://github.com/nnuudev/BlueClover/blob/dev/Clover/app/src/main/assets/html/licenses.html).
