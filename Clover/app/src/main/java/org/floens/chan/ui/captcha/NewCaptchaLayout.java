@@ -108,17 +108,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
         setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                String host = Uri.parse(url).getHost();
-                if (host == null) {
-                    return false;
-                }
-
-                if (host.equals(Uri.parse(NewCaptchaLayout.this.baseUrl).getHost())) {
-                    return false;
-                } else {
-                    AndroidUtils.openLink(url);
-                    return true;
-                }
+                return false;
             }
         });
         setBackgroundColor(getAttrColor(getContext(), R.attr.backcolor));

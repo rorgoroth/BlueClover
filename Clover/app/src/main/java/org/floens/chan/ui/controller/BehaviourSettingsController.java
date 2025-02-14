@@ -22,6 +22,7 @@ import static org.floens.chan.Chan.injector;
 import android.content.Context;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
+import android.webkit.WebStorage;
 import android.widget.Toast;
 
 import org.floens.chan.BuildConfig;
@@ -220,6 +221,7 @@ public class BehaviourSettingsController extends SettingsController {
             CookieManager.getInstance().removeAllCookie();
             CookieSyncManager.createInstance(Chan.getInstance());
             CookieSyncManager.getInstance().sync();
+            WebStorage.getInstance().deleteAllData();
             Toast.makeText(context, R.string.setting_cleared_saved_cookies, Toast.LENGTH_LONG)
                     .show();
         }));
