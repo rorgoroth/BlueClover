@@ -32,6 +32,7 @@ import org.otacoo.chan.utils.BitmapUtils;
 import org.otacoo.chan.utils.ImageDecoder;
 import org.otacoo.chan.utils.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Random;
@@ -75,6 +76,11 @@ public class ImageReencodingPresenter {
     public void loadImagePreview() {
         Reply reply = replyManager.getReply(loadable);
 
+        if (reply.file == null) {
+            callback.showCouldNotDecodeBitmapError();
+            return;
+        }
+
         ImageDecoder.decodeFileOnBackgroundThread(
                 reply.file,
                 dp(DECODED_IMAGE_WIDTH),
@@ -93,6 +99,7 @@ public class ImageReencodingPresenter {
     public Bitmap.CompressFormat getImageFormat() {
         try {
             Reply reply = replyManager.getReply(loadable);
+            if (reply.file == null) return null;
             return BitmapUtils.getImageFormat(reply.file);
         } catch (IOException e) {
             Logger.e(TAG, "Error while trying to get image format", e);
@@ -125,7 +132,7 @@ public class ImageReencodingPresenter {
     }
 
     public void applyImageOptions() {
-        Reply reply;
+        final Reply reply;
 
         synchronized (this) {
             if (cancelable != null) {
@@ -133,6 +140,12 @@ public class ImageReencodingPresenter {
             }
 
             reply = replyManager.getReply(loadable);
+        }
+
+        final File fileToProcess = reply.file;
+        if (fileToProcess == null) {
+            callback.onImageOptionsApplied(reply);
+            return;
         }
 
         Logger.d(TAG, "imageOptions: [" + imageOptions.toString() + "]");
@@ -163,27 +176,37 @@ public class ImageReencodingPresenter {
             try {
                 callback.disableOrEnableButtons(false);
 
-                reply.file = BitmapUtils.reencodeBitmapFile(
-                        reply.file,
+                File resultFile = BitmapUtils.reencodeBitmapFile(
+                        fileToProcess,
                         imageOptions.getFixExif(),
                         imageOptions.getRemoveMetadata(),
                         imageOptions.getChangeImageChecksum(),
                         imageOptions.getReencode()
                 );
+                
+                if (resultFile == null) {
+                    throw new IOException("Re-encoding failed to produce a result file");
+                }
+
+                reply.file = resultFile;
 
                 if (imageOptions.getRemoveFilename()) {
                     reply.fileName = getNewImageName();
                 } else if (imageOptions.getReencode() != null && imageOptions.getReencode().getReencodeType() != ReencodeType.AS_IS) {
+                    String ext = imageOptions.getReencode().getReencodeType().name().substring(3).toLowerCase(Locale.ENGLISH);
                     int lastDotInFilename = reply.fileName.lastIndexOf(".");
-                    if (lastDotInFilename != -1)
+                    if (lastDotInFilename != -1) {
                         reply.fileName = reply.fileName.substring(0, lastDotInFilename);
-                    reply.fileName += "." + imageOptions.getReencode().getReencodeType().name().substring(3).toLowerCase(Locale.ENGLISH);
+                    }
+                    reply.fileName += "." + ext;
                 }
             } catch (Throwable error) {
                 Logger.e(TAG, "Error while trying to re-encode bitmap file", error);
                 callback.disableOrEnableButtons(true);
                 callback.showFailedToReencodeImage(error);
-                cancelable = null;
+                synchronized (this) {
+                    cancelable = null;
+                }
                 return;
             } finally {
                 callback.disableOrEnableButtons(true);

@@ -72,7 +72,7 @@ public abstract class CommonSite extends SiteBase {
     private String name;
     private SiteIcon icon;
     private BoardsType boardsType;
-    private CommonConfig config;
+    public CommonConfig config;
     private CommonSiteUrlHandler resolvable;
     private CommonEndpoints endpoints;
     private CommonActions actions;

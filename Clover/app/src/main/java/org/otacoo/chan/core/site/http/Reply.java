@@ -20,6 +20,8 @@ package org.otacoo.chan.core.site.http;
 import org.otacoo.chan.core.model.orm.Loadable;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The data needed to send a reply.
@@ -37,8 +39,13 @@ public class Reply {
 
     public Loadable loadable;
 
+    // Legacy single file support - maintained for backwards compatibility
     public File file;
     public String fileName = "";
+    
+    // New multiple file support
+    public List<FileAttachment> fileAttachments = new ArrayList<>();
+
     public String name = "";
     public String options = "";
     public String subject = "";
@@ -48,4 +55,23 @@ public class Reply {
     public boolean spoilerImage = false;
     public String password = "";
     public String flag = "";
+
+    /**
+     * Represents a single file attachment with optional metadata like spoiler status.
+     */
+    public static class FileAttachment {
+        public File file;
+        public String fileName;
+        public boolean spoiler;
+
+        public FileAttachment(File file, String fileName) {
+            this(file, fileName, false);
+        }
+
+        public FileAttachment(File file, String fileName, boolean spoiler) {
+            this.file = file;
+            this.fileName = fileName;
+            this.spoiler = spoiler;
+        }
+    }
 }

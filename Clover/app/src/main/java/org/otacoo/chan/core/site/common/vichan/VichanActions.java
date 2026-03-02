@@ -63,12 +63,21 @@ public class VichanActions extends CommonSite.CommonActions {
         
         call.parameter("password", generateRandomPassword());
 
-        if (reply.file != null) {
+        // Support both legacy single file and new multiple files
+        if (!reply.fileAttachments.isEmpty()) {
+            // New multiple file support
+            for (Reply.FileAttachment attachment : reply.fileAttachments) {
+                call.fileParameter("files", attachment.fileName, attachment.file);
+                if (attachment.spoiler) {
+                    call.parameter("fileSpoiler", "on");
+                }
+            }
+        } else if (reply.file != null) {
+            // Legacy single file support
             call.fileParameter("file", reply.fileName, reply.file);
-        }
-
-        if (reply.spoilerImage) {
-            call.parameter("spoiler", "on");
+            if (reply.spoilerImage) {
+                call.parameter("spoiler", "on");
+            }
         }
 
         call.parameter("json_response", "1");
@@ -102,7 +111,7 @@ public class VichanActions extends CommonSite.CommonActions {
         }
 
         // Lainchan delay
-        if (site.config().name.equalsIgnoreCase("Lainchan")) {
+        if (site.name().equalsIgnoreCase("Lainchan")) {
             try {
                 Thread.sleep(6000);
             } catch (InterruptedException e) {

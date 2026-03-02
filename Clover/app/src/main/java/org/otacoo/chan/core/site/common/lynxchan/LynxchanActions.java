@@ -140,8 +140,14 @@ public class LynxchanActions extends CommonSite.CommonActions {
             call.parameter("password", reply.password);
         }
 
-        // Lynxchan file parameter is usually "files"
-        if (reply.file != null) {
+        // Support both legacy single file and new multiple files
+        if (!reply.fileAttachments.isEmpty()) {
+            // New multiple file support
+            for (Reply.FileAttachment attachment : reply.fileAttachments) {
+                call.fileParameter("files", attachment.fileName, attachment.file);
+            }
+        } else if (reply.file != null) {
+            // Legacy single file support
             call.fileParameter("files", reply.fileName, reply.file);
         }
 

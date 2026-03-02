@@ -48,7 +48,9 @@ import org.otacoo.chan.utils.AndroidUtils;
 import org.otacoo.chan.utils.Logger;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -84,6 +86,8 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
     private boolean previewOpen;
     private boolean pickingFile;
     private int selectedQuote = -1;
+    
+    private int editingAttachmentIndex = -1;
 
     @Inject
     public ReplyPresenter(ReplyManager replyManager,
@@ -106,6 +110,10 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         this.loadable = loadable;
 
         this.board = loadable.board;
+        if (board == null) {
+            Logger.e(TAG, "bindLoadable: board is null!");
+            return;
+        }
 
         draft = replyManager.getReply(loadable);
 
@@ -119,8 +127,21 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         callback.showCommentCounter(board.maxCommentChars > 0);
         callback.showFlag(!board.boardFlags.isEmpty());
 
-        if (draft.file != null) {
+        org.otacoo.chan.core.site.FileUploadLimits limits = loadable.getSite().fileUploadLimits();
+        
+        // Reset previewOpen before checking attachments
+        previewOpen = false;
+        
+        // Show multi-file attachments if they exist
+        if (limits.maxFileCount > 1 && !draft.fileAttachments.isEmpty()) {
+            callback.openFileAttachments(draft.fileAttachments, draft.fileAttachments.size(), limits.maxFileCount);
+            previewOpen = true;
+        } else if (draft.file != null) {
+            // Legacy single file mode
             showPreview(draft.fileName, draft.file);
+        } else {
+            // No file, ensure preview is closed
+            callback.openPreview(false, null);
         }
 
         switchPage(Page.INPUT, false);
@@ -129,9 +150,13 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
 
     public void unbindLoadable() {
         bound = false;
+        callback.loadViewsIntoDraft(draft);
+        
+        // Clear file attachment data before saving
         draft.file = null;
         draft.fileName = "";
-        callback.loadViewsIntoDraft(draft);
+        draft.fileAttachments.clear();
+        
         replyManager.putReply(loadable, draft);
 
         closeAll();
@@ -169,7 +194,10 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         }
         updateButtons();
         if (previewOpen) {
-            callback.openFileName(moreOpen);
+            // Only show global filename field for single-file sites
+            if (isSingleFileMode()) {
+                callback.openFileName(moreOpen);
+            }
             callback.openSpoiler(board.spoilers && moreOpen, false);
         }
     }
@@ -186,31 +214,122 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
     public boolean isExpanded() {
         return moreOpen;
     }
+    
+    public boolean isSingleFileMode() {
+        if (loadable == null) return true;
+        org.otacoo.chan.core.site.FileUploadLimits limits = loadable.getSite().fileUploadLimits();
+        if (limits == null) return true; // Default to single-file mode if limits unavailable
+        return limits.maxFileCount == 1;
+    }
 
     public void onAttachClicked() {
+        if (loadable == null) return;
+        
+        org.otacoo.chan.core.site.FileUploadLimits limits = loadable.getSite().fileUploadLimits();
+        if (limits == null) return; // Can't proceed without limits
+        
+        int maxFiles = limits.maxFileCount;
+        
         if (!pickingFile) {
-            if (previewOpen) {
-                callback.openPreview(false, null);
-                draft.file = null;
-                draft.fileName = "";
-                if (moreOpen) {
-                    callback.openFileName(false);
-                    callback.openSpoiler(false, false);
+            // For multi-file sites, clear all attachments or add more if under the limit
+            if (maxFiles > 1) {
+                if (previewOpen || !draft.fileAttachments.isEmpty()) {
+                    // Main button acts as "remove all files" when attachments exist
+                    draft.fileAttachments.clear();
+                    callback.openFileAttachments(draft.fileAttachments, 0, maxFiles);
+                    previewOpen = false;
+                } else {
+                    int remainingFiles = maxFiles - draft.fileAttachments.size();
+                    if (remainingFiles <= 0) {
+                        return;
+                    }
+
+                    // Enable multi-select based on remaining slots
+                    boolean allowMultiple = remainingFiles > 1;
+                    pickingFile = callback.getImagePickDelegate().pick(this, allowMultiple, remainingFiles);
                 }
-                previewOpen = false;
-            } else {
-                callback.getImagePickDelegate().pick(this);
-                pickingFile = true;
+            } else if (maxFiles == 1) {
+                // Single file mode - toggle preview
+                if (previewOpen) {
+                    callback.openPreview(false, null);
+                    draft.file = null;
+                    draft.fileName = "";
+                    if (moreOpen) {
+                        callback.openFileName(false);
+                        callback.openSpoiler(false, false);
+                    }
+                    previewOpen = false;
+                } else {
+                    pickingFile = callback.getImagePickDelegate().pick(this, false, 1);
+                }
             }
         }
     }
 
+    /**
+     * Remove a file attachment at the specified index.
+     * Called when user clicks the remove button on a file.
+     */
+    public void removeFileAttachment(int index) {
+        if (index >= 0 && index < draft.fileAttachments.size()) {
+            draft.fileAttachments.get(index).file = null; // Clean up
+            draft.fileAttachments.remove(index);
+            
+            org.otacoo.chan.core.site.FileUploadLimits limits = loadable.getSite().fileUploadLimits();
+            int maxFiles = limits.maxFileCount;
+            
+            if (draft.fileAttachments.isEmpty()) {
+                // All files removed - hide file attachments and update button state
+                callback.openFileAttachments(draft.fileAttachments, 0, maxFiles);
+                previewOpen = false;
+            } else {
+                // Some files remain - update the display
+                callback.openFileAttachments(draft.fileAttachments, draft.fileAttachments.size(), maxFiles);
+            }
+        }
+    }
+
+    /**
+     * Toggle the spoiler status of a file attachment.
+     * @param index Index of the attachment
+     * @param spoiler Whether to spoiler the image
+     */
+    public void setFileAttachmentSpoiler(int index, boolean spoiler) {
+        if (index >= 0 && index < draft.fileAttachments.size()) {
+            draft.fileAttachments.get(index).spoiler = spoiler;
+        }
+    }
+    
+    /**
+     * Update the filename of a file attachment.
+     * @param index Index of the attachment
+     * @param fileName New filename
+     */
+    public void setFileAttachmentFileName(int index, String fileName) {
+        if (index >= 0 && index < draft.fileAttachments.size()) {
+            draft.fileAttachments.get(index).fileName = fileName;
+        }
+    }
+
     public void onSubmitClicked() {
+        if (loadable == null) {
+            Toast.makeText(getAppContext(), "Error: No loadable", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
         callback.loadViewsIntoDraft(draft);
 
         draft.loadable = loadable;
         draft.spoilerImage = draft.spoilerImage && board.spoilers;
         draft.captchaResponse = null;
+
+        // For backwards compatibility with single-file mode
+        if (!draft.fileAttachments.isEmpty()) {
+            Reply.FileAttachment first = draft.fileAttachments.get(0);
+            draft.file = first.file;
+            draft.fileName = first.fileName;
+            draft.spoilerImage = first.spoiler;
+        }
 
         if (loadable.site.actions().postRequiresAuthentication()) {
             switchPage(Page.AUTHENTICATION, true);
@@ -448,9 +567,42 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
     @Override
     public void onFilePicked(String name, File file) {
         pickingFile = false;
-        draft.file = file;
-        draft.fileName = name;
-        showPreview(name, file);
+        
+        org.otacoo.chan.core.site.FileUploadLimits limits = loadable.getSite().fileUploadLimits();
+        int maxFiles = limits.maxFileCount;
+        
+        String finalFileName = maybeRandomizeFilename(name);
+        
+        // For sites that support multiple files
+        if (maxFiles > 1 && draft.fileAttachments.size() < maxFiles) {
+            draft.fileAttachments.add(new Reply.FileAttachment(file, finalFileName, false));
+            callback.openFileAttachments(draft.fileAttachments, draft.fileAttachments.size(), maxFiles);
+            previewOpen = true;
+        } else {
+            // Legacy single file mode (for 4chan and single-file sites)
+            draft.file = file;
+            draft.fileName = finalFileName;
+            showPreview(finalFileName, file);
+        }
+    }
+
+    private String maybeRandomizeFilename(String originalName) {
+        if (ChanSettings.randomizeFilename.get()) {
+            long nowMicros = System.currentTimeMillis() * 1000L;
+            long oneDayMillis = 24L * 60L * 60L * 1000L;
+            long randomPastYearMicros = (long) (Math.random() * 365L * oneDayMillis * 1000L);
+            long randomizedTimestamp = nowMicros - randomPastYearMicros;
+            
+            // Extract file extension from original name if it exists
+            String extension = "";
+            int dotIndex = originalName.lastIndexOf('.');
+            if (dotIndex > 0 && dotIndex < originalName.length() - 1) {
+                extension = originalName.substring(dotIndex);
+            }
+            
+            return randomizedTimestamp + extension;
+        }
+        return originalName;
     }
 
     @Override
@@ -465,6 +617,7 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         moreOpen = false;
         previewOpen = false;
         selectedQuote = -1;
+        editingAttachmentIndex = -1;
         callback.openMessage(false, true, "", false);
         callback.setExpanded(false);
         callback.openSubject(false);
@@ -478,6 +631,11 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
     }
 
     private void makeSubmitCall() {
+        if (draft.loadable == null) {
+            Logger.e(TAG, "Draft loadable is null before posting!");
+            onPostError(null, new IOException("loadable is null"));
+            return;
+        }
         loadable.getSite().actions().post(draft, this);
         switchPage(Page.LOADING, true);
     }
@@ -536,9 +694,18 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         callback.setFileName(name);
         previewOpen = true;
 
+        // Get file upload limits from the site
+        org.otacoo.chan.core.site.FileUploadLimits limits = board.getSite().fileUploadLimits();
+        
         boolean probablyWebm = name.toLowerCase(Locale.ENGLISH).endsWith(".webm");
-        int maxSize = probablyWebm ? board.maxWebmSize : board.maxFileSize;
-        if (file.length() > maxSize) {
+        long maxSize = probablyWebm ? limits.maxWebmSize : limits.maxFileSize;
+        
+        // If site limits don't specify a max size, fall back to board settings
+        if (maxSize <= 0) {
+            maxSize = probablyWebm ? board.maxWebmSize : board.maxFileSize;
+        }
+        
+        if (maxSize > 0 && file.length() > maxSize) {
             String fileSize = getReadableFileSize(file.length());
             String maxSizeString = getReadableFileSize(maxSize);
             String text = getRes().getString(probablyWebm ? R.string.reply_webm_too_big : R.string.reply_file_too_big, fileSize, maxSizeString);
@@ -549,24 +716,22 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
             callback.openPreviewMessage(false, null);
         }
     }
-
-    private String maybeRandomizeFilename(String originalName) {
-        if (ChanSettings.randomizeFilename.get()) {
-            long nowMicros = System.currentTimeMillis() * 1000L;
-            long oneDayMillis = 24L * 60L * 60L * 1000L;
-            long randomPastYearMicros = (long) (Math.random() * 365L * oneDayMillis * 1000L);
-            long randomizedTimestamp = nowMicros - randomPastYearMicros;
-            
-            // Extract file extension from original name if it exists
-            String extension = "";
-            int dotIndex = originalName.lastIndexOf('.');
-            if (dotIndex > 0 && dotIndex < originalName.length() - 1) {
-                extension = originalName.substring(dotIndex);
-            }
-            
-            return randomizedTimestamp + extension;
+    
+    /**
+     * Called when an image attachment is clicked to open re-encoding options.
+     * @param index Index of the attachment
+     */
+    public void onImageAttachmentClicked(int index) {
+        org.otacoo.chan.core.site.FileUploadLimits limits = loadable.getSite().fileUploadLimits();
+        if (limits.maxFileCount > 1 && index >= 0 && index < draft.fileAttachments.size()) {
+            editingAttachmentIndex = index;
+            Reply.FileAttachment attachment = draft.fileAttachments.get(index);
+            // Temporarily set single file fields so re-encoder picks them up
+            draft.file = attachment.file;
+            draft.fileName = attachment.fileName;
+        } else {
+            editingAttachmentIndex = -1;
         }
-        return originalName;
     }
 
     /**
@@ -574,9 +739,23 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
      * re-encodes the picked image file (they may want to scale it down/remove metadata/change quality etc.)
      */
     public void onImageOptionsApplied(Reply reply) {
-        draft.file = reply.file;
-        draft.fileName = reply.fileName;
-        showPreview(draft.fileName, draft.file);
+        if (editingAttachmentIndex != -1 && editingAttachmentIndex < draft.fileAttachments.size()) {
+            Reply.FileAttachment attachment = draft.fileAttachments.get(editingAttachmentIndex);
+            attachment.file = reply.file;
+            attachment.fileName = reply.fileName;
+            
+            org.otacoo.chan.core.site.FileUploadLimits limits = loadable.getSite().fileUploadLimits();
+            callback.openFileAttachments(draft.fileAttachments, draft.fileAttachments.size(), limits.maxFileCount);
+            
+            // Clear temporary fields
+            draft.file = null;
+            draft.fileName = "";
+            editingAttachmentIndex = -1;
+        } else {
+            draft.file = reply.file;
+            draft.fileName = reply.fileName;
+            showPreview(draft.fileName, draft.file);
+        }
     }
 
     public void reloadLastReply() {
@@ -585,7 +764,12 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
             // (which means, I'm probably breaking something somewhere)
             draft = lastReply;
             callback.loadDraftIntoViews(draft);
-            if (draft.file != null) {
+            
+            org.otacoo.chan.core.site.FileUploadLimits limits = loadable.getSite().fileUploadLimits();
+            if (!draft.fileAttachments.isEmpty() && limits.maxFileCount > 1) {
+                callback.openFileAttachments(draft.fileAttachments, draft.fileAttachments.size(), limits.maxFileCount);
+                previewOpen = true;
+            } else if (draft.file != null) {
                 showPreview(draft.fileName, draft.file);
             }
         }
@@ -641,6 +825,20 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         void openPreviewMessage(boolean show, String message);
 
         void openSpoiler(boolean show, boolean checked);
+        
+        /**
+         * Display multiple file attachments for sites that support multi-file uploads.
+         * @param attachments List of FileAttachment objects
+         * @param currentCount Current number of files
+         * @param maxCount Maximum files allowed
+         */
+        void openFileAttachments(List<Reply.FileAttachment> attachments, int currentCount, int maxCount);
+        
+        /**
+         * Remove a file attachment at the specified index.
+         * @param index Index of the attachment to remove
+         */
+        void removeFileAttachment(int index);
 
         void onFilePickLoading();
 

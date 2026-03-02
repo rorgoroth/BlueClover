@@ -23,8 +23,9 @@ import org.otacoo.chan.core.model.orm.Loadable;
 import org.otacoo.chan.core.site.http.Reply;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -36,7 +37,7 @@ import javax.inject.Singleton;
 public class ReplyManager {
     private final Context context;
 
-    private Map<Loadable, Reply> drafts = new HashMap<>();
+    private Map<Loadable, Reply> drafts = new ConcurrentHashMap<>();
 
     @Inject
     public ReplyManager(Context context) {
@@ -58,8 +59,20 @@ public class ReplyManager {
         for (Map.Entry<Loadable, Reply> entry : drafts.entrySet()) {
             if (!entry.getKey().equals(loadable)) {
                 Reply value = entry.getValue();
+                
+                // Clean up files to avoid leaking cache space
+                if (value.file != null && value.file.exists()) {
+                    value.file.delete();
+                }
+                for (Reply.FileAttachment attachment : value.fileAttachments) {
+                    if (attachment.file != null && attachment.file.exists()) {
+                        attachment.file.delete();
+                    }
+                }
+
                 value.file = null;
                 value.fileName = "";
+                value.fileAttachments.clear();
             }
         }
 
@@ -67,6 +80,6 @@ public class ReplyManager {
     }
 
     public File getPickFile() {
-        return new File(context.getCacheDir(), "picked_file");
+        return new File(context.getCacheDir(), "picked_file_" + UUID.randomUUID().toString());
     }
 }
