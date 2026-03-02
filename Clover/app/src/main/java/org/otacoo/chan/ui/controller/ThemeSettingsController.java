@@ -61,7 +61,6 @@ import org.otacoo.chan.core.settings.ChanSettings;
 import org.otacoo.chan.core.site.common.DefaultPostParser;
 import org.otacoo.chan.core.site.parser.CommentParser;
 import org.otacoo.chan.core.site.parser.PostParser;
-import org.otacoo.chan.ui.activity.BoardActivity;
 import org.otacoo.chan.ui.activity.StartActivity;
 import org.otacoo.chan.ui.cell.PostCell;
 import org.otacoo.chan.ui.dialog.ColorPickerView;

@@ -539,7 +539,7 @@ public class StartActivity extends AppCompatActivity implements
     // It is a hack but it works.
     // The other restart() method does not work for this case, so I'm using this one instead
     public void restartApp() {
-        Intent intent = new Intent(this, BoardActivity.class);
+        Intent intent = new Intent(this, StartActivity.class);
         intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
         finish();

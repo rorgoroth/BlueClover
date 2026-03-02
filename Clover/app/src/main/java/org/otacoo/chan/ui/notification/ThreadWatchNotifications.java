@@ -13,7 +13,7 @@ import androidx.core.app.NotificationCompat;
 import org.otacoo.chan.R;
 import org.otacoo.chan.core.manager.WatchManager;
 import org.otacoo.chan.core.model.Post;
-import org.otacoo.chan.ui.activity.BoardActivity;
+import org.otacoo.chan.ui.activity.StartActivity;
 
 import java.util.List;
 import java.util.regex.Pattern;
@@ -155,7 +155,7 @@ public class ThreadWatchNotifications extends NotificationHelper {
     }
 
     private void setNotificationIntent(NotificationCompat.Builder builder, int pinId) {
-        Intent intent = new Intent(applicationContext, BoardActivity.class);
+        Intent intent = new Intent(applicationContext, StartActivity.class);
         intent.setAction(Intent.ACTION_MAIN);
         intent.addCategory(Intent.CATEGORY_LAUNCHER);
         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP |

@@ -71,9 +71,7 @@ import org.otacoo.chan.ui.captcha.AuthenticationLayoutCallback;
 import org.otacoo.chan.ui.captcha.AuthenticationLayoutInterface;
 import org.otacoo.chan.ui.captcha.CaptchaLayout;
 import org.otacoo.chan.ui.captcha.GenericWebViewAuthenticationLayout;
-import org.otacoo.chan.ui.captcha.LegacyCaptchaLayout;
 import org.otacoo.chan.ui.captcha.NewCaptchaLayout;
-import org.otacoo.chan.ui.captcha.v1.CaptchaNojsLayoutV1;
 import org.otacoo.chan.ui.drawable.DropdownArrowDrawable;
 import org.otacoo.chan.ui.helper.HintPopup;
 import org.otacoo.chan.utils.Logger;
@@ -516,14 +514,10 @@ public class ReplyLayout extends LoadView implements
             boolean typeMatches = false;
             switch (authentication.type) {
                 case CAPTCHA1:
-                    typeMatches = authenticationLayout instanceof LegacyCaptchaLayout;
-                    break;
                 case CAPTCHA2:
                     typeMatches = authenticationLayout instanceof CaptchaLayout;
                     break;
                 case CAPTCHA2_NOJS:
-                    typeMatches = authenticationLayout instanceof CaptchaNojsLayoutV1;
-                    break;
                 case GENERIC_WEBVIEW:
                     typeMatches = authenticationLayout instanceof GenericWebViewAuthenticationLayout;
                     break;
@@ -543,29 +537,13 @@ public class ReplyLayout extends LoadView implements
         if (authenticationLayout == null) {
             Logger.i("ReplyLayout", "Creating new authentication layout for type: " + authentication.type);
             switch (authentication.type) {
-                case CAPTCHA1: {
-                    final LayoutInflater inflater = LayoutInflater.from(getContext());
-                    authenticationLayout = (LegacyCaptchaLayout) inflater.inflate(
-                            R.layout.layout_captcha_legacy, captchaContainer, false);
-                    Logger.i("ReplyLayout", "Created LegacyCaptchaLayout (CAPTCHA1)");
-                    break;
-                }
+                case CAPTCHA1: 
                 case CAPTCHA2: {
                     authenticationLayout = new CaptchaLayout(getContext());
-                    Logger.i("ReplyLayout", "Created CaptchaLayout (CAPTCHA2 - old reCAPTCHA v2)");
+                    Logger.i("ReplyLayout", "Created CaptchaLayout (reCAPTCHA v2)");
                     break;
                 }
-                case CAPTCHA2_NOJS: {
-                    // Always use webview-based captcha view
-                    authenticationLayout = new CaptchaNojsLayoutV1(getContext());
-
-                    ImageView resetButton = captchaContainer.findViewById(R.id.reset);
-                    if (resetButton != null) {
-                        resetButton.setVisibility(View.VISIBLE);
-                    }
-                    Logger.i("ReplyLayout", "Created CaptchaNojsLayoutV1 (CAPTCHA2_NOJS)");
-                    break;
-                }
+                case CAPTCHA2_NOJS:
                 case GENERIC_WEBVIEW: {
                     GenericWebViewAuthenticationLayout view = new GenericWebViewAuthenticationLayout(getContext());
 
@@ -594,9 +572,7 @@ public class ReplyLayout extends LoadView implements
             captchaContainer.addView((View) authenticationLayout, 0);
         }
 
-        if (!(authenticationLayout instanceof LegacyCaptchaLayout)) {
-            AndroidUtils.hideKeyboard(this);
-        }
+        AndroidUtils.hideKeyboard(this);
 
         authenticationLayout.initialize(loadable, callback);
         authenticationLayout.reset();
