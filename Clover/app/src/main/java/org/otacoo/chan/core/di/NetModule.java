@@ -16,6 +16,11 @@ import java.util.concurrent.TimeUnit;
 
 import javax.inject.Singleton;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import okhttp3.Cookie;
+import okhttp3.CookieJar;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.dnsoverhttps.DnsOverHttps;
@@ -29,10 +34,60 @@ public class NetModule {
     @Provides
     @Singleton
     public OkHttpClient provideOkHttpClient(UserAgentProvider userAgentProvider) {
+        CookieJar cookieJar = new CookieJar() {
+            private final java.net.CookieManager cookieManager = new java.net.CookieManager();
+            {
+                cookieManager.setCookiePolicy(java.net.CookiePolicy.ACCEPT_ALL);
+            }
+
+            @Override
+            public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
+                try {
+                    for (Cookie cookie : cookies) {
+                        java.net.HttpCookie httpCookie = new java.net.HttpCookie(cookie.name(), cookie.value());
+                        httpCookie.setDomain(cookie.domain());
+                        httpCookie.setPath(cookie.path());
+                        httpCookie.setSecure(cookie.secure());
+                        httpCookie.setHttpOnly(cookie.httpOnly());
+                        if (cookie.expiresAt() > System.currentTimeMillis()) {
+                            httpCookie.setMaxAge((cookie.expiresAt() - System.currentTimeMillis()) / 1000);
+                        }
+                        cookieManager.getCookieStore().add(url.uri(), httpCookie);
+                    }
+                } catch (Exception e) {
+                }
+            }
+
+            @Override
+            public List<Cookie> loadForRequest(HttpUrl url) {
+                List<Cookie> result = new ArrayList<>();
+                try {
+                    List<java.net.HttpCookie> httpCookies = cookieManager.getCookieStore().get(url.uri());
+                    for (java.net.HttpCookie httpCookie : httpCookies) {
+                        Cookie.Builder builder = new Cookie.Builder()
+                                .name(httpCookie.getName())
+                                .value(httpCookie.getValue());
+                        if (httpCookie.getDomain() != null) builder.domain(httpCookie.getDomain());
+                        if (httpCookie.getPath() != null) builder.path(httpCookie.getPath());
+                        if (httpCookie.getSecure()) builder.secure();
+                        if (httpCookie.isHttpOnly()) builder.httpOnly();
+                        if (httpCookie.getMaxAge() > 0) {
+                            builder.expiresAt(System.currentTimeMillis() + httpCookie.getMaxAge() * 1000);
+                        }
+                        result.add(builder.build());
+                        Logger.i(TAG, "Loaded cookie " + httpCookie.getName() + " for " + url.host());
+                    }
+                } catch (Exception e) {
+                }
+                return result;
+            }
+        };
+
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .connectTimeout(TIMEOUT, TimeUnit.MILLISECONDS)
                 .readTimeout(TIMEOUT, TimeUnit.MILLISECONDS)
                 .writeTimeout(TIMEOUT, TimeUnit.MILLISECONDS)
+                .cookieJar(cookieJar)
                 .addInterceptor(new ChanInterceptor(userAgentProvider));
 
         if (ChanSettings.dnsOverHttps.get()) {

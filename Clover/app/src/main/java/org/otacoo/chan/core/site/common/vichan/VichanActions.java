@@ -54,17 +54,14 @@ public class VichanActions extends CommonSite.CommonActions {
             call.parameter("thread", String.valueOf(reply.loadable.no));
         }
 
-        // Identifying the action is crucial for vichan
-        call.parameter("post", "New Post");
-        call.parameter("json_response", "1");
-        call.parameter("name", reply.name);
-        call.parameter("email", reply.options);
+        call.parameter("name", reply.name != null ? reply.name : "");
+        call.parameter("email", reply.options != null ? reply.options : "");
 
-        if (!isEmpty(reply.subject)) {
-            call.parameter("subject", reply.subject);
-        }
+        call.parameter("subject", reply.subject != null ? reply.subject : "");
 
-        call.parameter("body", reply.comment);
+        call.parameter("body", reply.comment != null ? reply.comment : "");
+        
+        call.parameter("password", generateRandomPassword());
 
         if (reply.file != null) {
             call.fileParameter("file", reply.fileName, reply.file);
@@ -74,12 +71,18 @@ public class VichanActions extends CommonSite.CommonActions {
             call.parameter("spoiler", "on");
         }
 
+        call.parameter("json_response", "1");
+
         // Add json_response=1 to the URL as well to force API mode
         HttpUrl currentUrl = site.endpoints().reply(reply.loadable);
         call.url(currentUrl.newBuilder().addQueryParameter("json_response", "1").build());
-        
-        String referer = site.resolvable().desktopUrl(reply.loadable, null);
+
+        String referer = site.resolvable().desktopUrl(reply.loadable, null);  
         call.referer(referer);
+    }
+
+    private String generateRandomPassword() {
+        return Long.toHexString(Double.doubleToLongBits(Math.random()));
     }
 
     @Override

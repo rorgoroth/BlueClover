@@ -66,7 +66,7 @@ public class VichanAntispam {
         // Don't ignore fields with actual values - they might be antispam tokens
         fieldsToIgnore.addAll(Arrays.asList("board", "thread", "name", "email",
                 "subject", "body", "file", "spoiler", "json_response",
-                "file_url1", "file_url2", "file_url3", "post", "com"));
+                "file_url1", "file_url2", "file_url3", "password"));
     }
 
     public void ignoreField(String name) {
@@ -74,7 +74,7 @@ public class VichanAntispam {
     }
 
     public Map<String, String> get(String comment) {
-        Map<String, String> res = new HashMap<>();
+        Map<String, String> res = new java.util.LinkedHashMap<>();
 
         // Bootstrap request to establish PHP session
         // The server only sets PHPSESSID on requests to /post.php
@@ -113,8 +113,13 @@ public class VichanAntispam {
                             String value = input.val();
                             String type = input.attr("type").toLowerCase(Locale.ENGLISH);
 
-                            // Skip fields with no name, file inputs, or submit buttons
-                            if (name.isEmpty() || type.equals("file") || type.equals("submit")) {
+                            // Skip fields with no name, file inputs
+                            if (name.isEmpty() || type.equals("file")) {
+                                continue;
+                            }
+
+                            // Unchecked checkboxes and radio buttons shouldn't be submitted
+                            if ((type.equals("checkbox") || type.equals("radio")) && !input.hasAttr("checked")) {
                                 continue;
                             }
                             
