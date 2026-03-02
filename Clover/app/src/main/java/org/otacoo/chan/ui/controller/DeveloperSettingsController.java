@@ -38,6 +38,7 @@ import org.otacoo.chan.controller.Controller;
 import org.otacoo.chan.core.database.DatabaseManager;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -169,9 +170,11 @@ public class DeveloperSettingsController extends Controller {
 
     private void showCookieManagerDialog() {
         final String[] DOMAINS = {
+            "https://4chan.org",
             "https://sys.4chan.org", 
             "https://boards.4chan.org", 
             "https://www.4chan.org",
+            "https://4channel.org",
             "https://sys.4channel.org",
             "https://boards.4channel.org",
             "https://www.4channel.org"
@@ -251,7 +254,7 @@ public class DeveloperSettingsController extends Controller {
                                 String newVal = et.getText().toString();
                                 for (String domain : DOMAINS) {
                                     String host = android.net.Uri.parse(domain).getHost();
-                                    String cookieString = cookieName + "=" + newVal + "; Domain=" + host + "; Path=/; Secure; SameSite=Lax";
+                                    String cookieString = cookieName + "=" + newVal + "; Domain=" + host + "; Path=/; Secure; HttpOnly; SameSite=None";
                                     cm.setCookie(domain, cookieString);
                                 }
                                 cm.flush();
@@ -271,22 +274,7 @@ public class DeveloperSettingsController extends Controller {
                     new AlertDialog.Builder(context)
                             .setTitle("Delete \"" + cookieName + "\"?")
                             .setPositiveButton("Delete", (dlg, which) -> {
-                                for (String domain : DOMAINS) {
-                                    String host = android.net.Uri.parse(domain).getHost();
-                                    // Try multiple domain/path combinations to ensure deletion
-                                    String[] formats = {
-                                        cookieName + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; Domain=" + host,
-                                        cookieName + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; Domain=." + host,
-                                        cookieName + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/",
-                                        cookieName + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-                                    };
-                                    for (String f : formats) {
-                                        cm.setCookie(domain, f);
-                                    }
-                                }
-                                cm.flush();
-                                Toast.makeText(context, "Deleted " + cookieName, Toast.LENGTH_SHORT).show();
-                                view.post(this::showCookieManagerDialog); // refresh UI
+                                deleteCookieFromDomains(cm, DOMAINS, cookieName);
                             })
                             .setNegativeButton("Cancel", null)
                             .show();
@@ -354,5 +342,81 @@ public class DeveloperSettingsController extends Controller {
                 .setNegativeButton("Close", (dlg, which) -> currentCookieDialog = null)
                 .setOnCancelListener(dlg -> currentCookieDialog = null)
                 .show();
+    }
+
+    private void deleteCookieFromDomains(CookieManager cm, String[] domains, String cookieName) {
+        for (String domain : domains) {
+            String host = android.net.Uri.parse(domain).getHost();
+            if (host == null || host.isEmpty()) {
+                continue;
+            }
+
+            List<String> domainVariants = buildDomainVariants(host);
+            for (String domainAttr : domainVariants) {
+                String[] formats = {
+                        cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=" + domainAttr + "; Path=/; Secure; HttpOnly; SameSite=None",
+                    cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=" + domainAttr + "; Path=/; Secure; HttpOnly; SameSite=None; Partitioned",
+                        cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=" + domainAttr + "; Path=/; Secure; SameSite=None",
+                    cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=" + domainAttr + "; Path=/; Secure; SameSite=None; Partitioned",
+                        cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=" + domainAttr + "; Path=/"
+                };
+                for (String f : formats) {
+                    cm.setCookie(domain, f);
+                }
+            }
+
+            String[] hostOnlyFormats = {
+                    cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; Secure; HttpOnly; SameSite=None",
+                    cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; Secure; HttpOnly; SameSite=None; Partitioned",
+                    cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; Secure; SameSite=None",
+                    cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; Secure; SameSite=None; Partitioned",
+                    cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/",
+                    cookieName + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+            };
+            for (String f : hostOnlyFormats) {
+                cm.setCookie(domain, f);
+            }
+        }
+        cm.flush();
+
+        view.postDelayed(() -> {
+            boolean stillPresent = cookieExistsOnDomains(cm, domains, cookieName);
+            Toast.makeText(context,
+                    stillPresent ? "Could not fully remove " + cookieName : "Deleted " + cookieName,
+                    Toast.LENGTH_SHORT).show();
+            view.post(this::showCookieManagerDialog);
+        }, 300);
+    }
+
+    private List<String> buildDomainVariants(String host) {
+        LinkedHashSet<String> variants = new LinkedHashSet<>();
+        variants.add(host);
+        variants.add("." + host);
+
+        String[] parts = host.split("\\.");
+        if (parts.length >= 2) {
+            String root = parts[parts.length - 2] + "." + parts[parts.length - 1];
+            variants.add(root);
+            variants.add("." + root);
+        }
+
+        return new ArrayList<>(variants);
+    }
+
+    private boolean cookieExistsOnDomains(CookieManager cm, String[] domains, String cookieName) {
+        for (String domain : domains) {
+            String raw = cm.getCookie(domain);
+            if (raw == null || raw.isEmpty()) {
+                continue;
+            }
+            for (String part : raw.split(";\\s*")) {
+                int eq = part.indexOf('=');
+                String name = (eq >= 0 ? part.substring(0, eq) : part).trim();
+                if (cookieName.equals(name)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
