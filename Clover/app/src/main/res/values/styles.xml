@@ -80,7 +80,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
     <!-- Main dark theme -->
     <style name="Chan.Theme.Dark" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorPrimary">#ff212121</item>
+        <item name="colorPrimary">#ff282a2e</item>
         <item name="colorAccent">#ff00BCD4</item>
         <item name="loading_bar_color">#ff00BCD4</item>
         <item name="ui_text_color">#ffffffff</item>
@@ -178,7 +178,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     </style>
 
     <style name="Chan.Theme.Tomorrow" parent="Chan.Theme.Dark">
-        <item name="colorPrimary">#ff212121</item>
+        <item name="colorPrimary">#ff282a2e</item>
 
         <item name="backcolor">#ff282a2e</item>
         <item name="backcolor_secondary">#ff1d1f21</item>
