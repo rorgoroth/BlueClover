@@ -1,3 +1,18 @@
+## 2026-03-03 – v3.1.4
+
+- **New option:** Randomize Filenames
+- **New option:** Cookie manager (under Misc)
+  - Allows one to view, edit and delete cookies for all supported sites
+  - Similar option removed from the dev settings
+- Vichan: posting and multi-image uploads should now work on Sushichan (working) and Lainchan (untested) (#3)
+- Posting form now supports multiple files
+- File picker now allows to pick multiple files at once if the Site supports it
+- 4chan: further improvements to captcha flow, toasts and ways to reset
+- 4chan: Task image in the captcha can now be zoomed in for better reading, if touched
+- Small fixes for the Light/Dark themes and certain dialogs
+- Fix an issue with the Webview silently crashing because of running in a background thread
+- Overhauled or removed deprecated and unused Clover code
+
 ## 2026-03-01 – v3.1.3
 
 - **New feature:** Reworked the **Theme** section; you can now create your own themes within the app!
