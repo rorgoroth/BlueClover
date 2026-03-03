@@ -56,8 +56,7 @@ public class Chan4ReplyCall extends CommonReplyHttpCall {
         requestBuilder.header("Referer", referer);
         
         // sys.4chan.org expects specific browser-like headers for multipart POST
-        requestBuilder.header("Accept",
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
+        requestBuilder.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
         requestBuilder.header("Sec-Fetch-Dest", "document");
         requestBuilder.header("Sec-Fetch-Mode", "navigate");
         requestBuilder.header("Sec-Fetch-Site", "same-site");
