@@ -90,7 +90,7 @@ public class SearchLayout extends LinearLayout {
         addView(searchView, searchViewParams);
 
         clearButton.setAlpha(0f);
-        clearButton.setImageResource(R.drawable.ic_clear_black_24dp);
+        clearButton.setImageResource(org.otacoo.chan.ui.theme.ThemeHelper.theme().isLightTheme ? R.drawable.ic_clear_black_24dp : R.drawable.ic_clear_white_24dp);
         clearButton.setScaleType(ImageView.ScaleType.CENTER);
         clearButton.setOnClickListener(v -> {
             searchView.setText("");
