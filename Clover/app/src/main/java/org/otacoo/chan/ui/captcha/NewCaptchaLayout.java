@@ -151,6 +151,8 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(this, true);
 
+        WebView.setWebContentsDebuggingEnabled(true);
+
         // Set a default user agent from settings
         String userAgent = ChanSettings.customUserAgent.get();
         if (userAgent.isEmpty()) {
@@ -274,8 +276,17 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
         showingOverlay = false;
         reportedCompletion = false;
         nativePayloadRetryAttempts = 0;
+        
+        if (includeCacheBuster) {
+            // Force bypass of the local disk/memory cache for the main request to refresh _tcm/_tcs
+            getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
+        } else {
+            getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
+        }
+
         String ticketParam = (includeTicket && !ticket.isEmpty()) ? "&ticket=" + urlEncode(ticket) : "";
         String url = "https://sys.4chan.org/captcha?board=" + board + (thread_id > 0 ? "&thread_id=" + thread_id : "") + ticketParam;
+        
         if (includeCacheBuster) {
             url += (url.contains("?") ? "&" : "?") + "_=" + System.currentTimeMillis();
         }
@@ -428,7 +439,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
                 "      }" +
                 "      var chall = document.getElementById('t-challenge') || {value:''};" +
                 "      CaptchaCallback.onCaptchaEntered(chall.value, el.value);" +
-                "    } else if (el) setTimeout(pollResp, 500);" +
+                "    } else if (el) setTimeout(pollResp, 800);" +
                 "  })();" +
                 "})();";
         evaluateJavascript(js, null);
@@ -543,9 +554,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
                 if (onCooldownNow()) {
                     globalCooldowns.remove(getGlobalKey());
                     cooldownActive = false;
-                    if (AndroidUtils.getPreferences().getBoolean("preference_4chan_cooldown_toast", false)) {
-                        Toast.makeText(AndroidUtils.getAppContext(), "4chan: Cooldown finished. You can now request a captcha.", Toast.LENGTH_LONG).show();
-                    }
+                    maybeToast("4chan: Cooldown finished. You can now request a captcha.", false);
                 }
                 onCaptchaEntered("", "");
                 return;
@@ -565,8 +574,8 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
             if (expiryTime != null && expiryTime <= System.currentTimeMillis() + 1000) {
                 globalExpiries.remove(key);
                 globalPayloads.remove(key);
-                if (visibleInstances.contains(this) && AndroidUtils.getPreferences().getBoolean("preference_4chan_cooldown_toast", false)) {
-                    Toast.makeText(AndroidUtils.getAppContext(), "4chan: Captcha session expired.", Toast.LENGTH_LONG).show();
+                if (visibleInstances.contains(this)) {
+                    maybeToast("4chan: Captcha session expired.", false);
                 }
             }
         }, seconds * 1000L);
@@ -589,7 +598,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
 
                 AndroidUtils.runOnUiThread(() -> {
                     if (!msg.isEmpty() && !"null".equals(msg)) {
-                        Toast.makeText(getContext(), msg, Toast.LENGTH_LONG).show();
+                        maybeToast(msg, false);
                         showOverlay(msg);
                     } else if (full.contains("Post successful")) {
                         // Success - no reload needed here, callback handles it
@@ -602,7 +611,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
                             int end = Math.min(start + 120, full.length());
                             display = full.substring(start, end).replace("\n", " ") + "...";
                         }
-                        Toast.makeText(getContext(), display, Toast.LENGTH_LONG).show();
+                        maybeToast(display, false);
                         showOverlay(display);
                     } else {
                         // Unrecognized state – reload captcha
@@ -768,29 +777,38 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
                 (baseBg >> 8) & 0xFF,
                 baseBg & 0xFF);
         String fg = tc.fgHex;
-        String btn = isDark ? "background:#333;color:#eee;border:1px solid #555;" : "background:#0066cc;color:#fff;border:none;";
+        String btnBg = isDark ? "#333" : "#0066cc";
+        String btnFg = isDark ? "#e0e0e0" : "#fff";
+        String btnBorder = isDark ? "#555" : "#0052a3";
+        String btnStyle = String.format("background:%s;color:%s;border:1px solid %s;", btnBg, btnFg, btnBorder);
         
         String displayMsg = msg;
         boolean isError = false;
         if (msg.toLowerCase().contains("failed to load") || msg.toLowerCase().contains("error") || msg.toLowerCase().contains("fail")) {
-            displayMsg = msg + (msg.toLowerCase().contains("retry") ? "" : " Tap to retry.");
             isError = true;
-            post(() -> Toast.makeText(getContext(), msg, Toast.LENGTH_LONG).show());
+            post(() -> maybeToast(msg, false));
         }
 
-        String errorHtml = isError ? "<div style=\"color:#e53935;font-weight:bold;margin-bottom:15px;font-size:16px;\">" + displayMsg.replace("'", "\\'") + "</div>" : "";
-        String titleHtml = isError ? "Tap to request a captcha." : displayMsg.replace("'", "\\'");
+        String overlayHtml;
+        if (isError) {
+            overlayHtml = "<div style=\"color:#e53935;font-weight:bold;margin-bottom:15px;font-size:16px;\">Looks like there was an error while posting:</div>" +
+                         "<div style=\"margin-bottom:20px;font-style:italic;opacity:0.9;\">\"" + msg.replace("'", "\\'") + "\"</div>" +
+                         "<div>Try to get a new captcha or reset your session.</div>";
+        } else {
+            overlayHtml = "<div>" + msg.replace("'", "\\'") + "</div>";
+        }
 
         String js = "(function(){" +
                 "  var ov = document.getElementById('clover-overlay') || document.createElement('div');" +
                 "  ov.id = 'clover-overlay';" +
                 "  ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:" + bg + ";color:" + fg + ";display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;text-align:center;padding:20px;box-sizing:border-box;';" +
-                "  ov.innerHTML = '" + errorHtml + "<div>" + titleHtml + "</div>" + 
-                ("<button id=\"gcb\" style=\"margin-top:20px;padding:10px 20px;border-radius:4px;" + btn + "\">Get Captcha</button>" +
+                "  ov.innerHTML = '" + overlayHtml + 
+                ("<button id=\"gcb\" style=\"margin-top:25px;padding:12px 24px;border-radius:4px;font-weight:bold;cursor:pointer;" + btnStyle + "\">Get Captcha</button>" +
                 "<div style=\"flex:1;\"></div>" +
-                "<div style=\"margin-top:30px;padding-bottom:20px;font-size:12px;color:__C_LINK__;cursor:pointer;opacity:0.8;\" onclick=\"CaptchaCallback.onResetSession();\">⚠️ Reset Session</div>") + "';" +
+                "<div style=\"margin-top:30px;padding-bottom:20px;font-size:13px;color:__C_LINK__;cursor:pointer;opacity:0.8;text-decoration:underline;\" onclick=\"CaptchaCallback.onResetSession();\">⚠️ Reset Session</div>") + "';" +
                 "  var b = document.getElementById('gcb'); if(b) b.onclick = function(){ CaptchaCallback.onRequestCaptcha(); };" +
                 "  document.body.appendChild(ov);" +
+                "  var l = document.getElementsByTagName('div'); for(var i=0;i<l.length;i++){ if(l[i].innerHTML.indexOf('Reset Session')!=-1) l[i].style.color='" + (isDark ? "#b8b8b8" : "#1565c0") + "'; }" +
                 "})();";
         evaluateJavascript(js, null);
     }
@@ -813,9 +831,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
     private void startCooldownTracking(int seconds) {
         String key = getGlobalKey();
         globalCooldowns.put(key, System.currentTimeMillis() + (seconds * 1000L));
-        if (AndroidUtils.getPreferences().getBoolean("preference_4chan_cooldown_toast", false)) {
-            Toast.makeText(AndroidUtils.getAppContext(), "4chan: Cooldown to request new captcha started: (" + seconds + "s)", Toast.LENGTH_LONG).show();
-        }
+        maybeToast("4chan: Cooldown to request new captcha started: (" + seconds + "s)", false);
     }
 
     // Returns true if the WebView already has a valid cf_clearance cookie
@@ -833,28 +849,44 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
     private String get4chanCookieHeader() {
         CookieManager cm = CookieManager.getInstance();
         Set<String> set = new LinkedHashSet<>();
-        for (String b : new String[]{"https://sys.4chan.org", "https://boards.4chan.org"}) {
+        for (String b : new String[]{"https://sys.4chan.org", "https://boards.4chan.org", "https://sys.4channel.org", "https://boards.4channel.org"}) {
             String c = cm.getCookie(b);
-            if (c != null) set.addAll(Arrays.asList(c.split(";\\s*")));
+            if (c != null) {
+                for (String part : c.split(";\\s*")) {
+                    if (!part.isEmpty()) set.add(part);
+                }
+            }
         }
         return set.isEmpty() ? null : TextUtils.join("; ", set);
     }
 
     private void clearFingerprintCookies() {
         CookieManager cm = CookieManager.getInstance();
-        String[] domains = {"sys.4chan.org", "boards.4chan.org", ".4chan.org"};
-        String[] cookies = {"_tcm", "_tcs", "cf_clearance", "__cf_bm", "_cfuvid", "csrf"};
+        // Target all relevant 4chan domains to ensure isolation
+        String[] domains = {"sys.4chan.org", "boards.4chan.org", ".4chan.org", "4chan.org", "sys.4channel.org", "boards.4channel.org", ".4channel.org"};
         
         for (String domain : domains) {
             String baseUrl = "https://" + (domain.startsWith(".") ? domain.substring(1) : domain);
-            for (String cookie : cookies) {
-                String expire = cookie + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=" + domain + ";";
-                cm.setCookie(baseUrl, expire);
+            String existingCookies = cm.getCookie(baseUrl);
+            if (existingCookies != null && !existingCookies.isEmpty()) {
+                for (String part : existingCookies.split(";")) {
+                    String name = part.trim().split("=")[0];
+                    if (!name.isEmpty()) {
+                        // Expire every single cookie found on these domains
+                        cm.setCookie(baseUrl, name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=" + domain + ";");
+                    }
+                }
             }
         }
         cm.flush();
 
-        maybeToast("Session looks stale. Trying to refresh cookies...", false);
+        // Also clear local/session storage for 4chan domains via JS
+        evaluateJavascript("localStorage.clear(); sessionStorage.clear();", null);
+
+        maybeToast("4chan session cleared. Restarting...", true);
+        
+        // After clearing, trigger a hard reset to get fresh tokens
+        hardReset(true, true);
     }
 
     // Syncs cookies from a background OkHttp response back to the WebView
@@ -889,7 +921,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
         if (!TextUtils.isEmpty(err) && err.length() < 500) {
             final String finalErr = err;
             AndroidUtils.runOnUiThread(() -> {
-                Toast.makeText(getContext(), finalErr, Toast.LENGTH_LONG).show();
+                maybeToast(finalErr, false);
                 showOverlay(finalErr);
             });
         }
@@ -1012,7 +1044,19 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
 
         @JavascriptInterface
         public void onResetSession() {
-            AndroidUtils.runOnUiThread(NewCaptchaLayout.this::clearFingerprintCookies);
+            AndroidUtils.runOnUiThread(NewCaptchaLayout.this::onResetSession);
         }
+    }
+
+    /**
+     * Shows a confirmation dialog to the user before clearing cookies and restarting the session.
+     */
+    private void onResetSession() {
+        new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                .setTitle("Reset Session?")
+                .setMessage("This will clear 4chan session cookies, localStorage, and restart the captcha process. Use this if you are stuck or seeing consistent errors.")
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> clearFingerprintCookies())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 }
