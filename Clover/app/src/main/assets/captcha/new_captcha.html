@@ -987,6 +987,9 @@ function buildSingleViewTasksUI(data) {
             targetImg.style.objectFit = 'contain';
             targetImg.src = toImgSrc(target) || EMPTY_IMG_SRC;
             targetWrap.appendChild(targetImg);
+            targetWrap.onclick = function() {
+                this.classList.toggle('zoomed');
+            };
             instrDiv.appendChild(targetWrap);
         }
         taskDiv.appendChild(instrDiv);
