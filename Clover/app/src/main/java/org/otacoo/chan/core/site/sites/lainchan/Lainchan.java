@@ -30,8 +30,11 @@ import org.otacoo.chan.core.site.common.vichan.VichanApi;
 import org.otacoo.chan.core.site.common.vichan.VichanCommentParser;
 import org.otacoo.chan.core.site.common.vichan.VichanEndpoints;
 import org.otacoo.chan.core.site.FileUploadLimits;
+import org.otacoo.chan.core.site.common.MultipartHttpCall;
+import org.otacoo.chan.core.site.http.HttpCall;
 
 import okhttp3.HttpUrl;
+import okhttp3.Request;
 
 public class Lainchan extends CommonSite {
     public static final CommonSiteUrlHandler URL_HANDLER = new CommonSiteUrlHandler() {
@@ -100,6 +103,32 @@ public class Lainchan extends CommonSite {
         setEndpoints(new VichanEndpoints(this,
                 "https://lainchan.org",
                 "https://lainchan.org"));
+        setRequestModifier(new CommonRequestModifier() {
+            @Override
+            public void modifyHttpCall(HttpCall httpCall, Request.Builder requestBuilder) {
+                if (!(httpCall instanceof MultipartHttpCall)) {
+                    return;
+                }
+
+                Request request = requestBuilder.build();
+                HttpUrl url = request.url();
+                String path = url.encodedPath();
+                if (!path.endsWith("/post.php")) {
+                    return;
+                }
+
+                requestBuilder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36");
+                requestBuilder.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
+                requestBuilder.header("Accept-Language", "en-US,en;q=0.9");
+                requestBuilder.header("Cache-Control", "max-age=0");
+                requestBuilder.header("Origin", "https://lainchan.org");
+                requestBuilder.header("Upgrade-Insecure-Requests", "1");
+                requestBuilder.header("Sec-Fetch-Dest", "document");
+                requestBuilder.header("Sec-Fetch-Mode", "navigate");
+                requestBuilder.header("Sec-Fetch-Site", "same-origin");
+                requestBuilder.header("Sec-Fetch-User", "?1");
+            }
+        });
         setActions(new VichanActions(this));
         setApi(new VichanApi(this));
         setParser(new VichanCommentParser());
