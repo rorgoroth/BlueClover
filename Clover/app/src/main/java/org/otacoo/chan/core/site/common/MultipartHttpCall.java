@@ -24,6 +24,7 @@ import org.otacoo.chan.core.site.http.HttpCall;
 import org.otacoo.chan.core.site.http.ProgressRequestBody;
 
 import java.io.File;
+import java.util.Locale;
 
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
@@ -60,10 +61,32 @@ public abstract class MultipartHttpCall extends HttpCall {
     }
 
     public MultipartHttpCall fileParameter(String name, String filename, File file) {
+        String mimeType = guessMimeType(filename);
         formBuilder.addFormDataPart(name, filename, RequestBody.create(
-                file, MediaType.parse("application/octet-stream")
+                file, MediaType.parse(mimeType)
         ));
         return this;
+    }
+
+    private String guessMimeType(String filename) {
+        if (filename == null) {
+            return "application/octet-stream";
+        }
+
+        String lower = filename.toLowerCase(Locale.ENGLISH);
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".gif")) return "image/gif";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".bmp")) return "image/bmp";
+        if (lower.endsWith(".svg")) return "image/svg+xml";
+        if (lower.endsWith(".mp4")) return "video/mp4";
+        if (lower.endsWith(".webm")) return "video/webm";
+        if (lower.endsWith(".mp3")) return "audio/mpeg";
+        if (lower.endsWith(".ogg")) return "audio/ogg";
+        if (lower.endsWith(".wav")) return "audio/wav";
+        if (lower.endsWith(".pdf")) return "application/pdf";
+        return "application/octet-stream";
     }
 
     @Override
