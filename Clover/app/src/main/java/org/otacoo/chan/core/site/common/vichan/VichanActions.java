@@ -32,6 +32,7 @@ import org.otacoo.chan.core.site.http.ReplyResponse;
 import org.otacoo.chan.utils.Logger;
 import org.jsoup.Jsoup;
 
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -48,46 +49,14 @@ public class VichanActions extends CommonSite.CommonActions {
 
     @Override
     public void setupPost(Reply reply, MultipartHttpCall call) {
-        call.parameter("board", reply.loadable.board.code);
 
-        if (reply.loadable.isThreadMode()) {
-            call.parameter("thread", String.valueOf(reply.loadable.no));
-        }
-
-        call.parameter("name", reply.name != null ? reply.name : "");
-        call.parameter("email", reply.options != null ? reply.options : "");
-
-        call.parameter("subject", reply.subject != null ? reply.subject : "");
-
-        call.parameter("body", reply.comment != null ? reply.comment : "");
-        
-        call.parameter("password", generateRandomPassword());
-
-        // Support both legacy single file and new multiple files
-        if (!reply.fileAttachments.isEmpty()) {
-            // New multiple file support
-            for (Reply.FileAttachment attachment : reply.fileAttachments) {
-                call.fileParameter("files", attachment.fileName, attachment.file);
-                if (attachment.spoiler) {
-                    call.parameter("fileSpoiler", "on");
-                }
-            }
-        } else if (reply.file != null) {
-            // Legacy single file support
-            call.fileParameter("file", reply.fileName, reply.file);
-            if (reply.spoilerImage) {
-                call.parameter("spoiler", "on");
-            }
-        }
-
-        call.parameter("json_response", "1");
-
-        // Add json_response=1 to the URL as well to force API mode
-        HttpUrl currentUrl = site.endpoints().reply(reply.loadable);
-        call.url(currentUrl.newBuilder().addQueryParameter("json_response", "1").build());
+        // Use standard browser-like post URL (no json_response query/body)
+        call.url(site.endpoints().reply(reply.loadable));
 
         String referer = site.resolvable().desktopUrl(reply.loadable, null);  
         call.referer(referer);
+        //Logger.d(TAG, "  URL set without json_response");
+        //Logger.d(TAG, "  referer=" + referer);
     }
 
     private String generateRandomPassword() {
@@ -101,27 +70,102 @@ public class VichanActions extends CommonSite.CommonActions {
 
     @Override
     public void prepare(MultipartHttpCall call, Reply reply, ReplyResponse replyResponse) {
+        //Logger.d(TAG, "prepare: Extracting antispam fields");
         VichanAntispam antispam = new VichanAntispam(
                 HttpUrl.parse(site.resolvable().desktopUrl(reply.loadable, null)));
         antispam.addDefaultIgnoreFields();
-        Map<String, String> fields = antispam.get(reply.comment);
-        
-        for (Map.Entry<String, String> e : fields.entrySet()) {
-            call.parameter(e.getKey(), e.getValue());
-        }
 
-        // Lainchan delay
-        if (site.name().equalsIgnoreCase("Lainchan")) {
-            try {
-                Thread.sleep(6000);
-            } catch (InterruptedException e) {
-                // Ignore
+        String threadValue = reply.loadable.isThreadMode() ? String.valueOf(reply.loadable.no) : null;
+        String password = generateRandomPassword();
+        long antispamFetchStart = System.currentTimeMillis();
+        VichanAntispam.PostFormData postFormData = antispam.getPostFormData(
+                reply.comment,
+                reply.loadable.board.code,
+                threadValue,
+                reply.name != null ? reply.name : "",
+                reply.options != null ? reply.options : "",
+                reply.subject != null ? reply.subject : "",
+                password
+        );
+        long antispamFetchElapsed = System.currentTimeMillis() - antispamFetchStart;
+        applyMinimumFetchToSubmitDelay(antispamFetchElapsed);
+
+        String selectedCommentField = null;
+        for (Map.Entry<String, String> e : postFormData.fields.entrySet()) {
+            if (reply.comment != null && reply.comment.equals(e.getValue())) {
+                selectedCommentField = e.getKey();
+                break;
             }
         }
+
+        //Logger.d(TAG, "prepare: Adding form fields in DOM order");
+        String fileFieldName = postFormData.fileFieldName != null && !postFormData.fileFieldName.isEmpty()
+                ? postFormData.fileFieldName
+                : "file";
+        boolean filesAdded = false;
+        for (Map.Entry<String, String> e : postFormData.fields.entrySet()) {
+            call.parameter(e.getKey(), e.getValue());
+            String displayValue = e.getValue().length() > 50 ? e.getValue().substring(0, 50) + "..." : e.getValue();
+            //Logger.d(TAG, "  Added form field: " + e.getKey() + "=" + displayValue);
+
+            if (!filesAdded && postFormData.fileInsertAfterField != null
+                    && postFormData.fileInsertAfterField.equals(e.getKey())) {
+                filesAdded = addFiles(call, reply, fileFieldName);
+            }
+        }
+
+        //Logger.d(TAG, "prepare: Selected commentField=" + (selectedCommentField != null ? selectedCommentField : "(not-detected)")
+            + ", fileField=" + fileFieldName
+            + ", fileInsertAfter=" + (postFormData.fileInsertAfterField != null ? postFormData.fileInsertAfterField : "(end)"));
+        if (!filesAdded) {
+            addFiles(call, reply, fileFieldName);
+        }
+        
+        //Logger.d(TAG, "  json_response not used");
+    }
+
+    private void applyMinimumFetchToSubmitDelay(long fetchElapsedMs) {
+        final long minDelayMs = 5000;
+        long remainingMs = minDelayMs - fetchElapsedMs;
+        if (remainingMs <= 0) {
+            //Logger.d(TAG, "prepare: fetch->submit delay satisfied (elapsed=" + fetchElapsedMs + "ms)");
+            return;
+        }
+
+        //Logger.d(TAG, "prepare: waiting " + remainingMs + "ms to satisfy minimum fetch->submit delay");
+        try {
+            Thread.sleep(remainingMs);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private boolean addFiles(MultipartHttpCall call, Reply reply, String fileFieldName) {
+        boolean added = false;
+        if (!reply.fileAttachments.isEmpty()) {
+            for (Reply.FileAttachment attachment : reply.fileAttachments) {
+                //Logger.d(TAG, "  Adding file: " + attachment.fileName + " (size=" + attachment.file.length() + " bytes)");
+                call.fileParameter(fileFieldName, attachment.fileName, attachment.file);
+                if (attachment.spoiler) {
+                    call.parameter("fileSpoiler", "on");
+                }
+                added = true;
+            }
+        } else if (reply.file != null) {
+            //Logger.d(TAG, "  Adding file: " + reply.fileName + " (size=" + reply.file.length() + " bytes)");
+            call.fileParameter(fileFieldName, reply.fileName, reply.file);
+            if (reply.spoilerImage) {
+                call.parameter("spoiler", "on");
+            }
+            added = true;
+        }
+        return added;
     }
 
     @Override
     public void handlePost(ReplyResponse replyResponse, Response response, String result) {
+        //Logger.d(TAG, "handlePost: Response code=" + response.code() + ", length=" + result.length());
+        //Logger.d(TAG, "handlePost: Response body=" + (result.length() > 200 ? result.substring(0, 200) + "..." : result));
 
         if (isEmpty(result)) {
             replyResponse.errorMessage = "Empty response from server";
@@ -133,13 +177,16 @@ public class VichanActions extends CommonSite.CommonActions {
         if (trimResult.startsWith("{")) {
             try {
                 JSONObject json = new JSONObject(trimResult);
+                //Logger.d(TAG, "handlePost: Parsed as JSON");
                 if (json.has("error")) {
                     replyResponse.errorMessage = json.getString("error");
+                    Logger.d(TAG, "handlePost: JSON error: " + replyResponse.errorMessage);
                     return;
                 }
                 
                 if (json.optBoolean("captcha", false)) {
                     replyResponse.requireAuthentication = true;
+                    Logger.d(TAG, "handlePost: Captcha required");
                     return;
                 }
 
@@ -147,6 +194,7 @@ public class VichanActions extends CommonSite.CommonActions {
                     replyResponse.postNo = json.getInt("id");
                     replyResponse.threadNo = json.optInt("tid", replyResponse.postNo);
                     replyResponse.posted = true;
+                    //Logger.d(TAG, "handlePost: Post successful, postNo=" + replyResponse.postNo);
                     return;
                 }
             } catch (Exception e) {
@@ -154,13 +202,85 @@ public class VichanActions extends CommonSite.CommonActions {
             }
         }
 
+        // Check for a server redirect chain indicating a successful post.
+        // When vichan accepts a post without json_response, it issues a 303 redirect
+        // to the thread page (with noko) or board index (without noko).
+        // OkHttp follows the redirect automatically, so we inspect priorResponse().
+        Response prior = response.priorResponse();
+        if (prior != null && prior.isRedirect()) {
+            replyResponse.posted = true;
+
+            // Try to extract thread/post number from the redirect Location header
+            String location = prior.header("Location");
+            //Logger.d(TAG, "handlePost: Detected redirect " + prior.code() + ", Location=" + location);
+
+            if (location != null) {
+                Matcher locMatcher = Pattern.compile("/\\w+/res/(\\d+)\\.html(?:#(\\d+))?").matcher(location);
+                if (locMatcher.find()) {
+                    replyResponse.threadNo = Integer.parseInt(locMatcher.group(1));
+                    if (locMatcher.group(2) != null) {
+                        replyResponse.postNo = Integer.parseInt(locMatcher.group(2));
+                    } else {
+                        replyResponse.postNo = replyResponse.threadNo;
+                    }
+                }
+            }
+
+            // Also try the final URL after redirect
+            if (replyResponse.threadNo == 0) {
+                HttpUrl finalUrl = response.request().url();
+                Matcher urlMatcher = Pattern.compile("/\\w+/res/(\\d+)\\.html").matcher(finalUrl.encodedPath());
+                if (urlMatcher.find()) {
+                    replyResponse.threadNo = Integer.parseInt(urlMatcher.group(1));
+                    String fragment = finalUrl.encodedFragment();
+                    if (fragment != null && fragment.matches("\\d+")) {
+                        replyResponse.postNo = Integer.parseInt(fragment);
+                    }
+                }
+            }
+
+            // Try to extract the post number from vichan's "serv" JS cookie.
+            // After a successful post, vichan sets: Set-Cookie: serv={"id":<postNo>}
+            if (replyResponse.postNo == 0) {
+                try {
+                    Response r = prior;
+                    while (r != null && replyResponse.postNo == 0) {
+                        List<String> cookies = r.headers("Set-Cookie");
+                        for (String cookie : cookies) {
+                            if (cookie.startsWith("serv=")) {
+                                String value = cookie.substring(5);
+                                int semi = value.indexOf(';');
+                                if (semi > 0) value = value.substring(0, semi);
+                                value = java.net.URLDecoder.decode(value, "UTF-8");
+                                JSONObject servJson = new JSONObject(value);
+                                if (servJson.has("id")) {
+                                    replyResponse.postNo = servJson.getInt("id");
+                                    //Logger.d(TAG, "handlePost: Extracted postNo from serv cookie: " + replyResponse.postNo);
+                                }
+                                break;
+                            }
+                        }
+                        r = r.priorResponse();
+                    }
+                } catch (Exception e) {
+                    //Logger.d(TAG, "handlePost: Could not parse serv cookie: " + e.getMessage());
+                }
+            }
+
+            //Logger.d(TAG, "handlePost: Post successful (server redirect " + prior.code()
+            //        + "), threadNo=" + replyResponse.threadNo + ", postNo=" + replyResponse.postNo);
+            return;
+        }
+
         // Fallback to HTML parsing if JSON failed or was not returned
         Matcher auth = Pattern.compile("\"captcha\": ?true").matcher(result);
         Matcher err = errorPattern().matcher(result);
         if (auth.find()) {
             replyResponse.requireAuthentication = true;
+            Logger.d(TAG, "handlePost: Captcha required (HTML)");
         } else if (err.find()) {
             replyResponse.errorMessage = Jsoup.parse(err.group(1)).body().text();
+            Logger.d(TAG, "handlePost: HTML error: " + replyResponse.errorMessage);
         } else {
             // Check for successful redirect or body content
             HttpUrl url = response.request().url();
@@ -178,14 +298,18 @@ public class VichanActions extends CommonSite.CommonActions {
                         replyResponse.postNo = replyResponse.threadNo;
                     }
                     replyResponse.posted = true;
+                    //Logger.d(TAG, "handlePost: Post successful (redirect), postNo=" + replyResponse.postNo);
                 } else if (result.contains("Post successful") || result.contains("Thread created")) {
                     replyResponse.posted = true;
+                    //Logger.d(TAG, "handlePost: Post successful (text match)");
                 } else {
                     // Extract any visible text from the body if we're stuck on an error page
                     replyResponse.errorMessage = "Error posting: " + (result.length() > 100 ? "unknown response" : result);
+                    Logger.d(TAG, "handlePost: Unknown response: " + replyResponse.errorMessage);
                 }
             } catch (NumberFormatException ignored) {
                 replyResponse.errorMessage = "Error posting: could not find posted thread.";
+                Logger.d(TAG, "handlePost: NumberFormatException: " + replyResponse.errorMessage);
             }
         }
     }
