@@ -403,11 +403,11 @@ Enable \"Play videos with external player\" in the settings to play videos with 
     <string name="settings_appearance">Appearance</string>
     <string name="settings_appearance_description">Theme, layout, fonts, etc.</string>
 
-    <string name="settings_boards_threads_posts">Browsing Experience</string>
+    <string name="settings_boards_threads_posts">Browsing</string>
     <string name="settings_boards_threads_posts_description">Boards, threads, posts, etc.</string>
 
     <string name="settings_behavior">Misc</string>
-    <string name="settings_behavior_description">Proxy, User-Agent, Cookies, etc.</string>
+    <string name="settings_behavior_description">Cookies, proxy, User-Agent, etc.</string>
 
     <string name="settings_media">Media</string>
     <string name="settings_media_description">Save location, video player, etc.</string>
