@@ -238,14 +238,13 @@ public class ThemeHelper {
             theme.accentColor = getColor(setting.accentColor, theme.defaultAccentColor);
         }
         
-        // For loading bar color: only apply from settings for custom themes
-        // Built-in themes should use their theme-defined value
-        boolean isCustomTheme = theme.name.startsWith("custom_");
-        if (setting.loadingBarColor != null && isCustomTheme) {
+        // For loading bar color:
+        if (setting.loadingBarColor != null) {
             theme.loadingBarColor = getColor(setting.loadingBarColor, theme.defaultLoadingBarColor);
         }
         
         // Ensure overrides are applied if this is a custom theme
+        boolean isCustomTheme = theme.name.startsWith("custom_");
         if (isCustomTheme) {
             for (Map.Entry<String, Integer> entry : theme.colorOverrides.entrySet()) {
                 theme.applyColorOverride(entry.getKey(), entry.getValue());

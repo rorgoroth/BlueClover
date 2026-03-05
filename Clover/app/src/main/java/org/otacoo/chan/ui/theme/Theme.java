@@ -98,15 +98,15 @@ public class Theme {
         this.name = name;
         this.resValue = resValue;
         this.primaryColor = primaryColor;
-        accentColor = ThemeHelper.PrimaryColor.BLUE;
-        loadingBarColor = primaryColor;
+        this.accentColor = ThemeHelper.PrimaryColor.BLUE;
+        this.loadingBarColor = primaryColor;
+
+        this.defaultPrimaryColor = this.primaryColor;
+        this.defaultAccentColor = this.accentColor;
+        this.defaultLoadingBarColor = this.loadingBarColor;
 
         resolveSpanColors();
         resolveDrawables();
-
-        defaultPrimaryColor = this.primaryColor;
-        defaultAccentColor = this.accentColor;
-        defaultLoadingBarColor = this.loadingBarColor;
     }
 
     public void resolveDrawables() {
@@ -224,17 +224,15 @@ public class Theme {
         ta.recycle();
 
         if (primaryColorInt != 0) {
-            primaryColor = resolvePrimaryColor(primaryColorInt, primaryColor);
+            primaryColor = resolvePrimaryColor(primaryColorInt, defaultPrimaryColor);
         }
 
         if (accentColorInt != 0) {
-            accentColor = resolvePrimaryColor(accentColorInt, accentColor);
+            accentColor = resolvePrimaryColor(accentColorInt, defaultAccentColor);
         }
 
         if (loadingBarColorInt != 0) {
-            loadingBarColor = resolvePrimaryColor(loadingBarColorInt, primaryColor);
-        } else {
-            loadingBarColor = primaryColor;
+            loadingBarColor = resolvePrimaryColor(loadingBarColorInt, defaultLoadingBarColor);
         }
         
         // Apply overrides
@@ -285,10 +283,10 @@ public class Theme {
             primaryColor = resolvePrimaryColor(color, primaryColor);
         }
         else if ("colorAccent".equals(attrName)) {
-            accentColor = resolvePrimaryColor(color, ThemeHelper.PrimaryColor.BLUE);
+            accentColor = resolvePrimaryColor(color, accentColor);
         }
         else if ("loading_bar_color".equals(attrName)) {
-            loadingBarColor = resolvePrimaryColor(color, primaryColor);
+            loadingBarColor = resolvePrimaryColor(color, loadingBarColor);
         }
         else if ("backcolor".equals(attrName)) {
             backColor = color;

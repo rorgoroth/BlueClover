@@ -176,6 +176,7 @@ public class ChanSettings {
     public static final OptionsSetting<DestinationFolderMode> saveAlbumFolder;
     public static final BooleanSetting randomizeFilename;
     public static final BooleanSetting saveOriginalFilename;
+    public static final BooleanSetting saveOriginalFilenameAlbum;
     public static final BooleanSetting shareUrl;
     public static final BooleanSetting enableReplyFab;
     public static final BooleanSetting enableTopBottomFab;
@@ -278,6 +279,7 @@ public class ChanSettings {
         saveAlbumFolder = new OptionsSetting<>(p, "preference_save_album_folder", DestinationFolderMode.class, DestinationFolderMode.LEGACY);
         randomizeFilename = new BooleanSetting(p, "preference_randomize_filename", false);
         saveOriginalFilename = new BooleanSetting(p, "preference_image_save_original", false);
+        saveOriginalFilenameAlbum = new BooleanSetting(p, "preference_album_save_original", false);
         shareUrl = new BooleanSetting(p, "preference_image_share_url", false);
         accessiblePostInfo = new BooleanSetting(p, "preference_enable_accessible_info", false);
         useImmersiveModeForGallery = new BooleanSetting(p, "use_immersive_mode_for_gallery", false);
@@ -364,35 +366,35 @@ public class ChanSettings {
     public static ThemeColor getThemeAndColor() {
         String themeRaw = ChanSettings.theme.get();
 
-        String theme = themeRaw;
-        String color = null;
-        String accentColor = null;
+        String theme = "auto";
+        String color = "blue";
+        String accentColor = "blue";
         String loadingBarColor = null;
 
         String[] splitted = themeRaw.split(",");
-        if (splitted.length >= 2) {
-            theme = splitted[0];
-            color = splitted[1];
-            if (splitted.length >= 3) {
-                accentColor = splitted[2];
-            }
-            if (splitted.length >= 4) {
-                loadingBarColor = splitted[3];
-            }
-        }
+        if (splitted.length >= 1) theme = splitted[0];
+        if (splitted.length >= 2) color = splitted[1];
+        if (splitted.length >= 3) accentColor = splitted[2];
+        if (splitted.length >= 4) loadingBarColor = splitted[3];
 
         return new ThemeColor(theme, color, accentColor, loadingBarColor);
     }
 
     public static void setThemeAndColor(ThemeColor themeColor) {
-        if (TextUtils.isEmpty(themeColor.color) || TextUtils.isEmpty(themeColor.accentColor)) {
+        if (TextUtils.isEmpty(themeColor.theme) || TextUtils.isEmpty(themeColor.color) || TextUtils.isEmpty(themeColor.accentColor)) {
             throw new IllegalArgumentException();
         }
-        String value = themeColor.theme + "," + themeColor.color + "," + themeColor.accentColor;
+        
+        StringBuilder value = new StringBuilder();
+        value.append(themeColor.theme).append(",")
+             .append(themeColor.color).append(",")
+             .append(themeColor.accentColor);
+             
         if (!TextUtils.isEmpty(themeColor.loadingBarColor)) {
-            value += "," + themeColor.loadingBarColor;
+            value.append(",").append(themeColor.loadingBarColor);
         }
-        ChanSettings.theme.set(value);
+        
+        ChanSettings.theme.set(value.toString());
     }
 
     public static List<CustomTheme> getCustomThemes() {
