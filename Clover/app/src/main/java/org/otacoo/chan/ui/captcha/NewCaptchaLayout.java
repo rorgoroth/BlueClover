@@ -744,6 +744,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
             ThemeHelper.ColorPair tc = ThemeHelper.getThemeBackgroundForeground(getContext());
             int accentCol = ThemeHelper.theme().accentColor.color;
             String accentHex = String.format("#%06X", (0xFFFFFF & accentCol));
+            String accentFg = getContrastColor(accentCol);
 
             return html.replace("__CLOVER_JSON__", json.replace("</script>", "<\\/script>"))
                     .replace("__C_BG__", tc.bgHex)
@@ -754,14 +755,19 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
                     .replace("__C_INPUT_BG__", isDark ? "#1e1e1e" : "#fff")
                     .replace("__C_INPUT_FG__", isDark ? "#e0e0e0" : "#000")
                     .replace("__C_INPUT_BORDER__", isDark ? "#444" : "#ccc")
-                    .replace("__C_BTN_BG__", isDark ? "#333" : "#0066cc")
-                    .replace("__C_BTN_FG__", isDark ? "#e0e0e0" : "#fff")
-                    .replace("__C_BTN_BORDER__", isDark ? "#555" : "#0052a3")
+                    .replace("__C_BTN_BG__", accentHex)
+                    .replace("__C_BTN_FG__", accentFg)
+                    .replace("__C_BTN_BORDER__", isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)")
                     .replace("__C_MUTED__", isDark ? "#b0b0b0" : "#555");
         } catch (Exception e) {
             Logger.e(TAG, "Load asset failed", e);
             return null;
         }
+    }
+
+    private String getContrastColor(int color) {
+        double luminance = (0.299 * ((color >> 16) & 0xFF) + 0.587 * ((color >> 8) & 0xFF) + 0.114 * (color & 0xFF)) / 255;
+        return luminance > 0.5 ? "#000000" : "#ffffff";
     }
 
     // Injects a non-destructive overlay with a message and "Get Captcha" button
@@ -777,10 +783,11 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
                 (baseBg >> 8) & 0xFF,
                 baseBg & 0xFF);
         String fg = tc.fgHex;
-        String btnBg = isDark ? "#333" : "#0066cc";
-        String btnFg = isDark ? "#e0e0e0" : "#fff";
-        String btnBorder = isDark ? "#555" : "#0052a3";
-        String btnStyle = String.format("background:%s;color:%s;border:1px solid %s;", btnBg, btnFg, btnBorder);
+        
+        int accentCol = ThemeHelper.theme().accentColor.color;
+        String accentHex = String.format("#%06X", (0xFFFFFF & accentCol));
+        String accentFg = getContrastColor(accentCol);
+        String btnStyle = String.format("background:%s;color:%s;border:1px solid %s;", accentHex, accentFg, isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)");
         
         String displayMsg = msg;
         boolean isError = false;
