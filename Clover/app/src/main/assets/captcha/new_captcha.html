@@ -206,16 +206,19 @@
         }
 
         /* Choice styling - shared by both UI modes */
+        /* Wrapper around image */
         .t-choice {
-            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             max-width: 340px;
-            height: 86px;
-            border: 3px solid transparent;
+            border: 3px solid __C_INPUT_BORDER__;
             border-radius: 4px;
             overflow: hidden;
             background: __C_INPUT_BG__;
             box-sizing: border-box;
             margin-bottom: 5px;
+            height: auto;
         }
         .t-choice:hover,
         .t-choice:focus {
@@ -224,10 +227,14 @@
         .t-choice.selected {
             border-color: #4caf50;
         }
+        /* Task image */
         .t-choice img {
-            width: 100%;
-            height: 100%;
-            object-fit: fill;
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
         }
 
         #t-native-next {
