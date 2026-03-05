@@ -29,7 +29,7 @@ import okhttp3.Request;
 public interface SiteRequestModifier {
     void modifyHttpCall(HttpCall httpCall, Request.Builder requestBuilder);
 
-    void modifyVolleyHeaders(Map<String, String> headers, String url);
+    void modifyRequestHeaders(Map<String, String> headers, String url);
 
     void modifyWebView(WebView webView);
 }

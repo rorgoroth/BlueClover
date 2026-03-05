@@ -597,7 +597,7 @@ public abstract class CommonSite extends SiteBase {
         }
 
         @Override
-        public void modifyVolleyHeaders(java.util.Map<String, String> headers, String url) {
+        public void modifyRequestHeaders(java.util.Map<String, String> headers, String url) {
         }
 
         @Override
