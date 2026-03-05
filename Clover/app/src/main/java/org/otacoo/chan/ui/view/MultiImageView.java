@@ -556,8 +556,7 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         videoView.setPlayer(null);
         if (player != null) {
             player.removeListener(this);
-            final Player playerToRelease = player;
-            new Thread(playerToRelease::release, "exo-release").start();
+            player.release();
         }
         if (player == exoPlayer) {
             exoPlayer = null;
@@ -731,9 +730,8 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
             if (exoVideoView != null) {
                 exoVideoView.setPlayer(null);
             }
-            final ExoPlayer playerToRelease = exoPlayer;
+            exoPlayer.release();
             exoPlayer = null;
-            new Thread(playerToRelease::release, "exo-release").start();
         }
     }
 

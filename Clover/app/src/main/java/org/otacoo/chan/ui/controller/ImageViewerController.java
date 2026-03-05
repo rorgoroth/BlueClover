@@ -93,6 +93,7 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class ImageViewerController extends Controller implements ImageViewerPresenter.Callback {
     private static final String TAG = "ImageViewerController";
@@ -470,6 +471,13 @@ public class ImageViewerController extends Controller implements ImageViewerPres
             }
         });
 
+        Bitmap cached = ThumbnailView.getCachedBitmap(postImage.getThumbnailUrl().toString());
+        if (cached != null) {
+            previewImage.setBitmap(cached);
+            startAnimation.start();
+            return;
+        }
+
         OkHttpClient client = injector().instance(OkHttpClient.class);
         Request request = new Request.Builder().url(postImage.getThumbnailUrl().toString()).build();
         inTransitionCall = client.newCall(request);
@@ -484,16 +492,22 @@ public class ImageViewerController extends Controller implements ImageViewerPres
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 try {
-                    if (response.isSuccessful() && response.body() != null) {
-                        byte[] data = response.body().bytes();
-                        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-                        if (bitmap != null) {
-                            AndroidUtils.runOnUiThread(() -> {
-                                previewImage.setBitmap(bitmap);
-                                startAnimation.start();
-                            });
-                        } else {
-                            AndroidUtils.runOnUiThread(startAnimation::start);
+                    if (response.isSuccessful()) {
+                        try (ResponseBody body = response.body()) {
+                            if (body != null) {
+                                byte[] data = body.bytes();
+                                Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+                                if (bitmap != null) {
+                                    AndroidUtils.runOnUiThread(() -> {
+                                        previewImage.setBitmap(bitmap);
+                                        startAnimation.start();
+                                    });
+                                } else {
+                                    AndroidUtils.runOnUiThread(startAnimation::start);
+                                }
+                            } else {
+                                AndroidUtils.runOnUiThread(startAnimation::start);
+                            }
                         }
                     } else {
                         AndroidUtils.runOnUiThread(startAnimation::start);
@@ -511,6 +525,12 @@ public class ImageViewerController extends Controller implements ImageViewerPres
             return;
         }
 
+        Bitmap cached = ThumbnailView.getCachedBitmap(postImage.getThumbnailUrl().toString());
+        if (cached != null) {
+            doPreviewOutAnimation(postImage, cached);
+            return;
+        }
+
         OkHttpClient client = injector().instance(OkHttpClient.class);
         Request request = new Request.Builder().url(postImage.getThumbnailUrl().toString()).build();
         outTransitionCall = client.newCall(request);
@@ -525,10 +545,16 @@ public class ImageViewerController extends Controller implements ImageViewerPres
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 try {
-                    if (response.isSuccessful() && response.body() != null) {
-                        byte[] data = response.body().bytes();
-                        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-                        AndroidUtils.runOnUiThread(() -> doPreviewOutAnimation(postImage, bitmap));
+                    if (response.isSuccessful()) {
+                        try (ResponseBody body = response.body()) {
+                            if (body != null) {
+                                byte[] data = body.bytes();
+                                Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+                                AndroidUtils.runOnUiThread(() -> doPreviewOutAnimation(postImage, bitmap));
+                            } else {
+                                AndroidUtils.runOnUiThread(() -> doPreviewOutAnimation(postImage, null));
+                            }
+                        }
                     } else {
                         AndroidUtils.runOnUiThread(() -> doPreviewOutAnimation(postImage, null));
                     }
@@ -574,6 +600,7 @@ public class ImageViewerController extends Controller implements ImageViewerPres
                     .with(backgroundAlpha);
 
         } else {
+            previewImage.setBitmap(bitmap);
             ValueAnimator progress = ValueAnimator.ofFloat(1f, 0f);
             progress.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override

@@ -43,6 +43,7 @@ import android.util.LruCache;
 import android.view.View;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import org.otacoo.chan.R;
@@ -56,6 +57,7 @@ import okhttp3.Callback;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class ThumbnailView extends View {
     private static final String TAG = "ThumbnailView";
@@ -70,6 +72,12 @@ public class ThumbnailView extends View {
                 return bitmap.getByteCount() / 1024;
             }
         };
+    }
+
+    @Nullable
+    public static Bitmap getCachedBitmap(String url) {
+        if (TextUtils.isEmpty(url)) return null;
+        return sMemoryCache.get(url);
     }
 
     private Call currentCall;
@@ -172,30 +180,44 @@ public class ThumbnailView extends View {
 
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                if (call.isCanceled()) return;
+                if (call.isCanceled()) {
+                    response.close();
+                    return;
+                }
+
                 if (!response.isSuccessful()) {
                     AndroidUtils.runOnUiThread(() -> {
                         error = true;
                         errorText = getString(R.string.thumbnail_load_failed_server);
                         onImageSet(false);
                     });
+                    response.close();
                     return;
                 }
 
-                byte[] data = response.body().bytes();
-                Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-                if (bitmap != null) {
-                    sMemoryCache.put(url, bitmap);
-                    AndroidUtils.runOnUiThread(() -> {
-                        setImageBitmap(bitmap);
-                        onImageSet(false);
-                    });
-                } else {
-                    AndroidUtils.runOnUiThread(() -> {
-                        error = true;
-                        errorText = getString(R.string.thumbnail_load_failed_server);
-                        onImageSet(false);
-                    });
+                try (ResponseBody body = response.body()) {
+                    if (body == null) throw new IOException("Empty body");
+                    
+                    byte[] data = body.bytes();
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+                    
+                    if (bitmap != null) {
+                        sMemoryCache.put(url, bitmap);
+                        AndroidUtils.runOnUiThread(() -> {
+                            setImageBitmap(bitmap);
+                            onImageSet(false);
+                        });
+                    } else {
+                        AndroidUtils.runOnUiThread(() -> {
+                            error = true;
+                            errorText = getString(R.string.thumbnail_load_failed_server);
+                            onImageSet(false);
+                        });
+                    }
+                } catch (IOException e) {
+                    if (!call.isCanceled()) {
+                        throw e;
+                    }
                 }
             }
         });
