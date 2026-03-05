@@ -340,8 +340,7 @@ public class FileCacheDownloader implements Runnable {
                     for (String header : cookieHeaders) {
                         android.webkit.CookieManager.getInstance().setCookie(getBaseUrl(reqUrl), header);
                     }
-                } catch (IOException e) {
-                    log("Session refresh failed", e);
+                    extResp.close();
                 }
                 
                 // Retry the original request
@@ -354,7 +353,9 @@ public class FileCacheDownloader implements Runnable {
         }
 
         if (!response.isSuccessful()) {
-            throw new HttpCodeIOException(response.code());
+            int code = response.code();
+            response.close();
+            throw new HttpCodeIOException(code);
         }
 
         checkCancel();
