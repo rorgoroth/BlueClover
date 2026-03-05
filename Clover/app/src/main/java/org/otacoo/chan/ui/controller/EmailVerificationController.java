@@ -19,9 +19,9 @@ package org.otacoo.chan.ui.controller;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.os.Handler;
-import android.os.Looper;
 import android.webkit.CookieManager;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import org.otacoo.chan.controller.Controller;
@@ -35,8 +35,7 @@ public class EmailVerificationController extends Controller {
     private String initialUrl;
     private String title = "Email Verification";
     private String[] requiredCookies;
-    private Handler handler = new Handler(Looper.getMainLooper());
-    private Runnable cookieWatcher;
+    private boolean isFinished = false;
 
     public EmailVerificationController(Context context) {
         this(context, "https://sys.4chan.org/signin");
@@ -75,14 +74,27 @@ public class EmailVerificationController extends Controller {
         webView = new AuthWebView(context);
         
         // 8chan.moe specific automation
-        if (initialUrl.contains("8chan.moe") || initialUrl.contains("8chan.st")) {
-            webView.setWebViewClient(new android.webkit.WebViewClient() {
-                @Override
-                public void onPageFinished(android.webkit.WebView view, String url) {
-                    super.onPageFinished(view, url);
+        webView.setWebViewClient(new WebViewClient() {
+            private boolean sawChallenge = false;
+            
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                
+                String pageTitle = view.getTitle();
+                boolean is8chan = initialUrl != null && (initialUrl.contains("8chan.moe") || initialUrl.contains("8chan.st") || initialUrl.contains("8chan.cc"));
+
+                if (is8chan) {
+                    if (pageTitle != null && (pageTitle.contains("POWBlock") || pageTitle.contains("Checking"))) {
+                        sawChallenge = true;
+                    } else if (sawChallenge || !url.contains("pow")) {
+                        // We are no longer on the challenge page, which means it redirected successfully
+                        // Let's ensure cookies are completely synced then close!
+                        completeVerification();
+                    }
                 }
-            });
-        }
+            }
+        });
 
         // Load the verification page
         webView.loadUrl(initialUrl);
@@ -91,89 +103,28 @@ public class EmailVerificationController extends Controller {
 
         if (requiredCookies != null && requiredCookies.length > 0) {
             Toast.makeText(context, "Please solve the verification challenge to continue.", Toast.LENGTH_LONG).show();
-            startCookieWatcher();
         }
     }
 
-    private void startCookieWatcher() {
-        cookieWatcher = new Runnable() {
-            @Override
-            public void run() {
-                if (!alive) return;
-                
-                if (checkCookies()) {
-                    Toast.makeText(context, "Verification successful!", Toast.LENGTH_SHORT).show();
-                    EventBus.getDefault().post(new RefreshUIMessage("Verification successful"));
-                    
-                    if (navigationController != null) {
-                        navigationController.popController();
-                    } else if (presentedByController != null) {
-                        stopPresenting();
-                    }
-                } else {
-                    handler.postDelayed(this, 1000);
-                }
-            }
-        };
-        handler.postDelayed(cookieWatcher, 1000);
-    }
+    private void completeVerification() {
+        if (isFinished) return;
+        isFinished = true;
 
-    private boolean checkCookies() {
-        String url = webView.getUrl();
-        if (url == null) url = initialUrl;
-        
-        String cookies = CookieManager.getInstance().getCookie(url);
-        if (cookies == null) return false;
+        CookieManager.getInstance().flush();
 
-        boolean allFound = true;
-        for (String required : requiredCookies) {
-            boolean found = false;
-            // Handle wildcard/prefix matching for cookies like TOS20250418
-            if (cookies.contains(required)) {
-                found = true;
-            } else if (required.equals("TOS")) {
-                // Look for any cookie starting with TOS (e.g., TOS20250418)
-                if (cookies.matches(".*\\bTOS\\d+\\b.*") || cookies.contains("TOS=")) {
-                    found = true;
-                }
-            }
-            
-            if (!found) {
-                allFound = false;
-                break;
-            }
+        Toast.makeText(context, "Verification successful!", Toast.LENGTH_SHORT).show();
+        EventBus.getDefault().post(new RefreshUIMessage("Verification successful"));
+
+        if (navigationController != null) {
+            navigationController.popController();
+        } else if (presentedByController != null) {
+            stopPresenting();
         }
-        
-        if (allFound) return true;
-        
-        // Try initial URL as well if current URL didn't match
-        if (!url.equals(initialUrl)) {
-            cookies = CookieManager.getInstance().getCookie(initialUrl);
-            if (cookies != null) {
-                for (String required : requiredCookies) {
-                    boolean found = false;
-                    if (cookies.contains(required)) {
-                        found = true;
-                    } else if (required.equals("TOS")) {
-                        if (cookies.matches(".*\\bTOS\\d+\\b.*") || cookies.contains("TOS=")) {
-                            found = true;
-                        }
-                    }
-                    if (!found) return false;
-                }
-                return true;
-            }
-        }
-        
-        return false;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (cookieWatcher != null) {
-            handler.removeCallbacks(cookieWatcher);
-        }
         if (webView != null) {
             webView.destroy();
         }
