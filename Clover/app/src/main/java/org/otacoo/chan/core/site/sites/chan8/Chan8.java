@@ -36,6 +36,7 @@ import okhttp3.Request;
 import org.otacoo.chan.core.net.Chan8RateLimit;
 
 import java.util.Map;
+import org.otacoo.chan.utils.Logger;
 
 /**
  * Compatibility for 8chan.moe.
@@ -102,7 +103,9 @@ public class Chan8 extends CommonSite {
         setEndpoints(new LynxchanEndpoints(this, ROOT) {
             @Override
             public HttpUrl login() {
-                return root.url();
+                // Use the currently active domain so the verification WebView opens
+                // directly on the domain that hosts the POWBlock challenge (8chan.st).
+                return HttpUrl.parse("https://" + Chan8RateLimit.getActiveDomain() + "/");
             }
 
             // Build URLs against the currently active domain so requests
@@ -127,6 +130,8 @@ public class Chan8 extends CommonSite {
                 if (path == null) return null;
                 if (path.startsWith("http")) return HttpUrl.parse(path);
                 if (path.startsWith("/")) path = path.substring(1);
+                // 8chan.moe uses a flat /.media/ directory for both full images and thumbnails.
+                // It does NOT use board-specific path segments (e.g. /test/src/...) like standard Lynxchan.
                 return base().newBuilder().addPathSegments(path).build();
             }
 
@@ -136,6 +141,7 @@ public class Chan8 extends CommonSite {
                 if (thumb == null) return imageUrl(post, arg);
                 if (thumb.startsWith("http")) return HttpUrl.parse(thumb);
                 if (thumb.startsWith("/")) thumb = thumb.substring(1);
+                // 8chan.moe thumbnails are in the same /.media/ directory.
                 return base().newBuilder().addPathSegments(thumb).build();
             }
         });
@@ -145,67 +151,31 @@ public class Chan8 extends CommonSite {
         setParser(new LynxchanCommentParser());
 
         setRequestModifier(new CommonRequestModifier() {
+
             @Override
             public void modifyHttpCall(HttpCall httpCall, Request.Builder requestBuilder) {
                 String url = requestBuilder.build().url().toString();
-                String cookies = android.webkit.CookieManager.getInstance().getCookie(url);
-                if (cookies != null && !cookies.isEmpty()) {
-                    requestBuilder.header("Cookie", cookies);
-                }
+                // Cookies are handled automatically by OkHttp's CookieJar.
+                // Only inject non-cookie headers here.
+                requestBuilder.header("Referer", "https://" + Chan8RateLimit.getActiveDomain() + "/");
 
-                requestBuilder.header("Accept", "application/json, text/javascript, */*; q=0.01");
-                requestBuilder.header("X-Requested-With", "XMLHttpRequest");
-
-                String referer;
-                if (url.contains(".json")) {
-                    int lastSlash = url.lastIndexOf('/');
-                    referer = lastSlash != -1 ? url.substring(0, lastSlash) + "/" : ROOT;
-                } else {
-                    referer = ROOT;
+                if (url.contains("/.media/")) {
+                    requestBuilder.removeHeader("Accept");
+                    requestBuilder.header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
                 }
-                requestBuilder.header("Referer", referer);
-                requestBuilder.header("Origin", "https://8chan.moe");
-                requestBuilder.header("Sec-Fetch-Dest", "empty");
-                requestBuilder.header("Sec-Fetch-Mode", "cors");
-                requestBuilder.header("Sec-Fetch-Site", "same-origin");
+                if (url.endsWith(".json") || url.contains(".json?")) {
+                    requestBuilder.header("Accept", "application/json");
+                }
             }
 
             @Override
-            public void modifyVolleyHeaders(java.util.Map<String, String> headers, String url) {
-                String cookies = android.webkit.CookieManager.getInstance().getCookie(url);
-                if (cookies != null && !cookies.isEmpty()) {
-                    headers.put("Cookie", cookies);
+            public void modifyRequestHeaders(java.util.Map<String, String> headers, String url) {
+                // Cookies are handled automatically by OkHttp's CookieJar (via the
+                // network interceptor in NetModule).  Only non-cookie headers go here.
+                headers.put("Referer", "https://" + Chan8RateLimit.getActiveDomain() + "/");
+                if (url.endsWith(".json") || url.contains(".json?")) {
+                    headers.put("Accept", "application/json");
                 }
-
-                boolean isMedia = url.contains("/.media/");
-                if (isMedia) {
-                    String lower = url.toLowerCase();
-                    boolean isVideo = lower.endsWith(".webm") || lower.endsWith(".mp4")
-                            || lower.endsWith(".mov") || lower.endsWith(".ogg");
-                    headers.put("Accept", isVideo
-                            ? "video/webm,video/mp4,video/*;q=0.9,*/*;q=0.5"
-                            : "image/webp,image/apng,image/*,*/*;q=0.8");
-                    headers.put("Sec-Fetch-Dest", isVideo ? "video" : "image");
-                    headers.put("Sec-Fetch-Mode", "no-cors");
-                    headers.put("Accept-Language", "en-US,en;q=0.9");
-                } else {
-                    headers.put("Accept", "application/json, text/javascript, */*; q=0.01");
-                    headers.put("X-Requested-With", "XMLHttpRequest");
-                    headers.put("Sec-Fetch-Dest", "empty");
-                    headers.put("Sec-Fetch-Mode", "cors");
-                }
-
-                String referer;
-                if (isMedia) {
-                    referer = ROOT;
-                } else if (url.contains(".json")) {
-                    int lastSlash = url.lastIndexOf('/');
-                    referer = lastSlash != -1 ? url.substring(0, lastSlash) + "/" : ROOT;
-                } else {
-                    referer = ROOT;
-                }
-                headers.put("Referer", referer);
-                headers.put("Sec-Fetch-Site", "same-origin");
             }
         });
     }
