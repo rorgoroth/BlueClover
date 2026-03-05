@@ -7,7 +7,7 @@
 
 > [!NOTE]
 > This fork is originally based on **Blue Clover**, the repo of which has been deleted by the author, it also contains some PRs merged by that dev since Clover was abandoned (read the file [CHANGES_old_nuudev.txt](docs/CHANGES_old_nuudev.txt)).\
->It also contains some changes by [EmiriUchi](https://github.com/EmiriUchi/) in [Gold Clover](https://github.com/EmiriUchi/GoldClover/commits/1a6c19eccfc35b56e22d5b87d04d01117b6bc0d4/).\
+>It also contains some changes by [EmiriUchi](https://github.com/EmiriUchi/) in [Gold Clover](https://github.com/EmiriUchi/GoldClover/commits/1a6c19eccfc35b56e22d5b87d04d01117b6bc0d4/).
 
 Read the [CHANGES.md](CHANGES.md) file for all the changes made in this fork so far.\
 There has been an extensive backend overhaul and modernization of the app while keeping compatibility with older Android versions and the familiar Clover UX style:
