@@ -44,6 +44,10 @@ import org.otacoo.chan.core.site.http.ReplyResponse;
 import org.otacoo.chan.ui.activity.ImagePickDelegate;
 import org.otacoo.chan.ui.captcha.AuthenticationLayoutCallback;
 import org.otacoo.chan.ui.captcha.AuthenticationLayoutInterface;
+import org.otacoo.chan.ui.captcha.CaptchaLayout;
+import org.otacoo.chan.ui.captcha.GenericWebViewAuthenticationLayout;
+import org.otacoo.chan.ui.captcha.LynxchanCaptchaLayout;
+import org.otacoo.chan.ui.captcha.NewCaptchaLayout;
 import org.otacoo.chan.utils.AndroidUtils;
 import org.otacoo.chan.utils.Logger;
 
@@ -121,7 +125,26 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         draft = replyManager.getReply(loadable);
 
         if (TextUtils.isEmpty(draft.name)) {
+            draft.name = loadable.draftName;
+        }
+        if (TextUtils.isEmpty(draft.name)) {
             draft.name = ChanSettings.postDefaultName.get();
+        }
+        
+        if (TextUtils.isEmpty(draft.subject)) {
+            draft.subject = loadable.draftSubject;
+        }
+        
+        if (TextUtils.isEmpty(draft.comment)) {
+            draft.comment = loadable.draftComment;
+        }
+        
+        if (TextUtils.isEmpty(draft.options)) {
+            draft.options = loadable.draftOptions;
+        }
+        
+        if (TextUtils.isEmpty(draft.flag)) {
+            draft.flag = loadable.draftFlag;
         }
 
         callback.loadDraftIntoViews(draft);
@@ -154,6 +177,15 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
     public void unbindLoadable() {
         bound = false;
         callback.loadViewsIntoDraft(draft);
+        
+        // Save to Loadable for persistent storage
+        if (loadable.isThreadMode()) {
+            loadable.setDraftName(draft.name);
+            loadable.setDraftSubject(draft.subject);
+            loadable.setDraftComment(draft.comment);
+            loadable.setDraftOptions(draft.options);
+            loadable.setDraftFlag(draft.flag);
+        }
         
         // Clear file attachment data before saving
         draft.file = null;
@@ -376,6 +408,16 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
             draft.name = name;
             draft.flag = flag;
             replyManager.putReply(loadable, draft);
+            
+            // Clear drafts from loadable after successful post
+            if (loadable.isThreadMode()) {
+                loadable.setDraftName("");
+                loadable.setDraftSubject("");
+                loadable.setDraftComment("");
+                loadable.setDraftOptions("");
+                loadable.setDraftFlag("");
+            }
+
             callback.loadDraftIntoViews(draft);
             callback.onPosted();
 

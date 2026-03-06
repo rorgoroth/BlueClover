@@ -80,6 +80,21 @@ public class Loadable implements SiteReference, BoardReference {
     @DatabaseField
     public int lastLoaded = -1;
 
+    @DatabaseField
+    public String draftName = "";
+
+    @DatabaseField
+    public String draftSubject = "";
+
+    @DatabaseField
+    public String draftComment = "";
+
+    @DatabaseField
+    public String draftOptions = "";
+
+    @DatabaseField
+    public String draftFlag = "";
+
     public int markedNo = -1;
 
     /** Transient: when non-null, the board catalog should automatically be searched for this term on open. Not persisted. */
@@ -169,6 +184,41 @@ public class Loadable implements SiteReference, BoardReference {
         }
     }
 
+    public void setDraftName(String draftName) {
+        if (!TextUtils.equals(this.draftName, draftName)) {
+            this.draftName = draftName;
+            dirty = true;
+        }
+    }
+
+    public void setDraftSubject(String draftSubject) {
+        if (!TextUtils.equals(this.draftSubject, draftSubject)) {
+            this.draftSubject = draftSubject;
+            dirty = true;
+        }
+    }
+
+    public void setDraftComment(String draftComment) {
+        if (!TextUtils.equals(this.draftComment, draftComment)) {
+            this.draftComment = draftComment;
+            dirty = true;
+        }
+    }
+
+    public void setDraftOptions(String draftOptions) {
+        if (!TextUtils.equals(this.draftOptions, draftOptions)) {
+            this.draftOptions = draftOptions;
+            dirty = true;
+        }
+    }
+
+    public void setDraftFlag(String draftFlag) {
+        if (!TextUtils.equals(this.draftFlag, draftFlag)) {
+            this.draftFlag = draftFlag;
+            dirty = true;
+        }
+    }
+
     /**
      * Compares the mode, site, board and no.
      */
@@ -254,6 +304,11 @@ public class Loadable implements SiteReference, BoardReference {
         loadable.title = parcel.readString();
         loadable.listViewIndex = parcel.readInt();
         loadable.listViewTop = parcel.readInt();
+        loadable.draftName = parcel.readString();
+        loadable.draftSubject = parcel.readString();
+        loadable.draftComment = parcel.readString();
+        loadable.draftOptions = parcel.readString();
+        loadable.draftFlag = parcel.readString();
         return loadable;
     }
 
@@ -268,6 +323,11 @@ public class Loadable implements SiteReference, BoardReference {
         parcel.writeString(title);
         parcel.writeInt(listViewIndex);
         parcel.writeInt(listViewTop);
+        parcel.writeString(draftName);
+        parcel.writeString(draftSubject);
+        parcel.writeString(draftComment);
+        parcel.writeString(draftOptions);
+        parcel.writeString(draftFlag);
     }
 
     public Loadable copy() {
@@ -285,6 +345,11 @@ public class Loadable implements SiteReference, BoardReference {
         copy.listViewTop = listViewTop;
         copy.lastViewed = lastViewed;
         copy.lastLoaded = lastLoaded;
+        copy.draftName = draftName;
+        copy.draftSubject = draftSubject;
+        copy.draftComment = draftComment;
+        copy.draftOptions = draftOptions;
+        copy.draftFlag = draftFlag;
 
         return copy;
     }
