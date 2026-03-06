@@ -76,7 +76,14 @@ public abstract class SiteBase implements Site {
 
         initializeSettings();
 
-        if (boardsType().canList && !boardManager.getSiteSavedBoards(this).isEmpty()) {
+        // Lazy‑load available boards only when the board setup dialog is shown.
+        // Keeping this for later in case I need, for now we fetch on startup again.
+        //if (site.boardsType().canList && boardManager.getSiteBoards(site).isEmpty()) {
+        //    site.actions().boards(boards ->
+        //            boardManager.updateAvailableBoardsForSite(site, boards.boards));
+        //}
+
+        if (boardsType().canList) {
            actions().boards(boards -> boardManager.updateAvailableBoardsForSite(this, boards.boards));
         }
 
