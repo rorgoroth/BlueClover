@@ -391,6 +391,38 @@ var useSliderMode = false;
 var EMPTY_IMG_SRC = 'data:image/gif;base64,R0lGOODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 // --- Utility Functions ---
+function toImgSrc(imgLike) {
+    if (!imgLike) return '';
+    var s = (typeof imgLike === 'string') ? imgLike : extractImageLike(imgLike);
+    if (!s) return '';
+    s = s.trim();
+
+    if (s.indexOf('data:') === 0) {
+        // Remove internal whitespace that sometimes creeps into 4chan payloads
+        return s.replace(/\s+/g, '');
+    }
+
+    // Protocol-relative or absolute URL
+    if (s.indexOf('//') === 0) return 'https:' + s;
+    if (s.indexOf('http://') === 0 || s.indexOf('https://') === 0) return s;
+
+    // Relative path (like /captcha?...)
+    if (s.indexOf('/') === 0) return 'https://sys.4chan.org' + s;
+
+    // Pure Base64 payload (fallback check)
+    if (/^[A-Za-z0-9+/=_-]+$/.test(s) && s.length > 20) {
+        var clean = s.replace(/-/g, '+').replace(/_/g, '/');
+        // Guess MIME if possible, default to PNG as it's the most common for captchas
+        var mime = 'image/png';
+        if (clean.indexOf('iVBOR') === 0) mime = 'image/png';
+        else if (clean.indexOf('/9j/') === 0) mime = 'image/jpeg';
+        else if (clean.indexOf('R0lGOD') === 0) mime = 'image/gif';
+        else if (clean.indexOf('UklGR') === 0) mime = 'image/webp';
+        return 'data:' + mime + ';base64,' + clean;
+    }
+
+    return s;
+}
 
 function looksLikeImageString(s) {
     if (!s || typeof s !== 'string') return false;
@@ -406,18 +438,7 @@ function looksLikeImageString(s) {
         var u = t.replace(/\s+/g, '');
         if (/^[A-Za-z0-9+/=_-]+$/.test(u)) return true;
     }
-    if (t.indexOf('PHN2Zy') === 0 || t.indexOf('PD94bW') === 0) return true;
     return false;
-}
-
-function normalizeBase64(b64) {
-    if (!b64 || typeof b64 !== 'string') return '';
-    var t = b64.trim();
-    if (!t) return '';
-    t = t.replace(/-/g, '+').replace(/_/g, '/');
-    t = t.replace(/\s+/g, '');
-    while (t.length % 4 !== 0) t += '=';
-    return t;
 }
 
 function extractImageLike(v) {
@@ -431,47 +452,6 @@ function extractImageLike(v) {
         }
     }
     return '';
-}
-
-function toImgSrc(imgLike) {
-    if (!imgLike) return '';
-    var s = extractImageLike(imgLike);
-    if (!s) return '';
-    s = s.trim();
-    if (s.indexOf('data:image/') === 0) {
-        var comma = s.indexOf(',');
-        if (comma >= 0) {
-            var prefix = s.substring(0, comma + 1);
-            var b64Part = s.substring(comma + 1).replace(/\s+/g, '');
-            if (b64Part && /^[A-Za-z0-9+/=_-]+$/.test(b64Part)) {
-                return prefix + normalizeBase64(b64Part);
-            }
-        }
-        return s.replace(/\s+/g, '');
-    }
-    if (s.indexOf('//') === 0) return 'https:' + s;
-    if (s.indexOf('/') === 0 || s.indexOf('./') === 0) return s;
-    if (s.indexOf('http://') === 0 || s.indexOf('https://') === 0) return s;
-    if (s.indexOf('captcha?') === 0) return '/' + s;
-    s = s.replace(/\s+/g, '');
-    if (s.indexOf('<svg') === 0 || s.indexOf('<?xml') === 0) {
-        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
-    }
-    if (/^[A-Za-z0-9+/=_-]+$/.test(s) && s.length > 10) {
-        var b64 = normalizeBase64(s);
-        if (b64) {
-            function mimeFromB64(b) {
-                if (b.indexOf('iVBOR') === 0) return 'image/png';
-                if (b.indexOf('/9j/') === 0) return 'image/jpeg';
-                if (b.indexOf('R0lGOD') === 0) return 'image/gif';
-                if (b.indexOf('UklGR') === 0) return 'image/webp';
-                if (b.indexOf('PHN2Zy') === 0 || b.indexOf('PD94bW') === 0) return 'image/svg+xml';
-                return 'image/png';
-            }
-            return 'data:' + mimeFromB64(b64) + ';base64,' + b64;
-        }
-    }
-    return s;
 }
 
 function getChoices(task) {
@@ -734,6 +714,7 @@ function cooldownMessage(pcdMsg) {
     return pcdMsg + ' <a href="' + SIGNIN_LINK + '" target="_blank">Verify your email here.</a>';
 }
 
+var cooldownInterval = null;
 function buildFromJson(data) {
     if (data.twister) data = data.twister;
     if (data.single_view !== undefined) isSingleView = !!data.single_view;
@@ -750,6 +731,12 @@ function buildFromJson(data) {
         }
         return;
     }
+
+    if (cooldownInterval) {
+        clearInterval(cooldownInterval);
+        cooldownInterval = null;
+    }
+
     if (data.pcd !== undefined && data.pcd !== null) {
         var pcd = parseCountdown(data.pcd);
         if (data.ticket) {
@@ -760,33 +747,43 @@ function buildFromJson(data) {
         document.getElementById('t-msg').style.display = 'block';
         document.getElementById('t-msg').classList.add('with-warning');
         document.getElementById('t-msg-main').innerHTML = 'Please wait a while before making a post or <a href="' + SIGNIN_LINK + '" target="_blank">verify your email here.</a>';
-        document.getElementById('t-msg-secondary').textContent = pcd + 's';
-        if (pcd <= 0) {
-            document.getElementById('t-msg-secondary').textContent = '0s';
-            document.getElementById('t-msg-main').textContent = 'You can now request a captcha.';
-            showMsgButton('Get Captcha', false);
-            // Automatically request captcha instead of showing button, remove the lines above if so
-            // setTimeout(requestCaptcha, 500);
-            return;
+
+        function updatePcd() {
+            document.getElementById('t-msg-secondary').textContent = pcd + 's';
+            if (pcd <= 0) {
+                clearInterval(cooldownInterval);
+                cooldownInterval = null;
+                document.getElementById('t-msg-secondary').textContent = '0s';
+                document.getElementById('t-msg-main').textContent = 'You can now request a captcha.';
+                showMsgButton('Get Captcha', false);
+                return;
+            }
+            showMsgButton('Get Captcha', true, pcd);
+            pcd--;
         }
-        showMsgButton('Get Captcha', true, pcd);
-        data.pcd = pcd - 1;
-        setTimeout((function() { buildFromJson(data); }), 1000);
+        updatePcd();
+        cooldownInterval = setInterval(updatePcd, 1000);
         return;
     } else if (data.error) {
         var cd = parseCountdown(data.cd);
         document.getElementById('t-msg').style.display = 'block';
         document.getElementById('t-msg').classList.add('with-warning');
         document.getElementById('t-msg-main').textContent = data.error;
-        document.getElementById('t-msg-secondary').textContent = cd + 's';
-        if (cd <= 0) {
-            document.getElementById('t-msg').classList.remove('with-warning');
-            showMsgButton('Get Captcha', false);
-            return;
+
+        function updateCd() {
+            document.getElementById('t-msg-secondary').textContent = cd + 's';
+            if (cd <= 0) {
+                clearInterval(cooldownInterval);
+                cooldownInterval = null;
+                document.getElementById('t-msg').classList.remove('with-warning');
+                showMsgButton('Get Captcha', false);
+                return;
+            }
+            showMsgButton('Get Captcha', true, cd);
+            cd--;
         }
-        showMsgButton('Get Captcha', true, cd);
-        data.cd = cd - 1;
-        setTimeout((function() { buildFromJson(data); }), 1000);
+        updateCd();
+        cooldownInterval = setInterval(updateCd, 1000);
         return;
     }
 
@@ -1165,11 +1162,13 @@ function buildSingleViewTasksUI(data) {
 
 function requestCaptcha() {
     if (expiryInterval) clearInterval(expiryInterval);
+    if (cooldownInterval) clearInterval(cooldownInterval);
     CaptchaCallback.onRequestCaptcha();
 }
 
 window.globalOnCaptchaEntered = function() {
     if (expiryInterval) clearInterval(expiryInterval);
+    if (cooldownInterval) clearInterval(cooldownInterval);
     var c = document.getElementById("t-challenge").value;
     var msg = { twister: { challenge: c, response: "" } };
     if (window.savedTicket) msg.twister.ticket = window.savedTicket;

@@ -24,6 +24,7 @@ import static org.otacoo.chan.utils.AndroidUtils.getAttrColor;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
@@ -121,6 +122,9 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
     /** Internal flag to skip OkHttp interception for the next load (e.g., when reloading with custom headers). */
     private volatile boolean skipInterceptNextLoad;
 
+    /** Remembers the last payload applied to the UI to prevent redundant redraws or infinite loops. */
+    private String lastAppliedPayload;
+
     public NewCaptchaLayout(Context context) {
         super(context);
         commonInit();
@@ -146,6 +150,11 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
         settings.setDatabaseEnabled(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         
+        // Disable system Force Dark to avoid interference with our manual dark mode implementation
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            settings.setForceDark(WebSettings.FORCE_DARK_OFF);
+        }
+
         // Ensure cookies are accepted and shared across sessions
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
@@ -281,33 +290,36 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
 
     // Performs a full reload of the 4chan captcha endpoint
     private void hardReset(boolean includeCacheBuster, boolean includeTicket) {
-        showingActiveCaptcha = false;
-        showingOverlay = false;
-        reportedCompletion = false;
-        nativePayloadRetryAttempts = 0;
-        
-        if (includeCacheBuster) {
-            // Force bypass of the local disk/memory cache for the main request to refresh _tcm/_tcs
-            getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
-        } else {
-            getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
-        }
+        AndroidUtils.runOnUiThread(() -> {
+            showingActiveCaptcha = false;
+            showingOverlay = false;
+            reportedCompletion = false;
+            nativePayloadRetryAttempts = 0;
+            lastAppliedPayload = null;
+            
+            if (includeCacheBuster) {
+                // Force bypass of the local disk/memory cache for the main request to refresh _tcm/_tcs
+                getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
+            } else {
+                getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
+            }
 
-        String ticketParam = (includeTicket && !ticket.isEmpty()) ? "&ticket=" + urlEncode(ticket) : "";
-        String url = "https://sys.4chan.org/captcha?board=" + board + (thread_id > 0 ? "&thread_id=" + thread_id : "") + ticketParam;
-        
-        if (includeCacheBuster) {
-            url += (url.contains("?") ? "&" : "?") + "_=" + System.currentTimeMillis();
-        }
-        
-        lastResponseWasAsset = false;
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Referer", "https://boards.4chan.org/" + board + "/thread/" + thread_id);
-        
-        // Ensure local storage is cleared for hard reset to avoid stale session state
-        evaluateJavascript("localStorage.clear(); sessionStorage.clear();", null);
-        
-        loadUrl(url, headers);
+            String ticketParam = (includeTicket && !ticket.isEmpty()) ? "&ticket=" + urlEncode(ticket) : "";
+            String url = "https://sys.4chan.org/captcha?board=" + board + (thread_id > 0 ? "&thread_id=" + thread_id : "") + ticketParam;
+            
+            if (includeCacheBuster) {
+                url += (url.contains("?") ? "&" : "?") + "_=" + System.currentTimeMillis();
+            }
+            
+            lastResponseWasAsset = false;
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Referer", "https://boards.4chan.org/" + board + "/thread/" + thread_id);
+            
+            // Ensure local storage is cleared for hard reset to avoid stale session state
+            evaluateJavascript("localStorage.clear(); sessionStorage.clear();", null);
+            
+            loadUrl(url, headers);
+        });
     }
 
     // Handles request interception and page lifecycle events
@@ -328,6 +340,10 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
                         : url.contains("sys.4chan.org/captcha?");
 
                 if (isMainFrame && isCaptchaRequest && showingActiveCaptcha) {
+                    if (lastResponseWasAsset) {
+                        return null;
+                    }
+
                     // Reset per-page state so that the incoming page is evaluated fresh.
                     showingActiveCaptcha = false;
                     lastResponseWasAsset = false;
@@ -518,6 +534,13 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
     // Parses a JSON payload and updates the UI with cooldown or challenge data
     private void applyPayload(String payload, String sourceUrl) {
         if (TextUtils.isEmpty(payload) || "null".equals(payload)) return;
+        
+        // Avoid redundant UI reloads if the payload hasn't changed.
+        if (payload.equals(lastAppliedPayload)) {
+            return;
+        }
+        lastAppliedPayload = payload;
+
         persistTicket(payload);
         globalPayloads.put(getGlobalKey(), payload);
 
@@ -837,7 +860,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
             String t = (inner != null ? inner : obj).optString("ticket", "");
             if (!t.isEmpty()) {
                 ticket = t;
-                evaluateJavascript("localStorage.setItem('4chan-tc-ticket','" + t.replace("'", "\\'") + "')", null);
+                AndroidUtils.runOnUiThread(() -> evaluateJavascript("localStorage.setItem('4chan-tc-ticket','" + t.replace("'", "\\'") + "')", null));
             }
         } catch (Exception ignored) {}
     }
@@ -876,32 +899,26 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
     }
 
     private void clearFingerprintCookies() {
-        CookieManager cm = CookieManager.getInstance();
-        // Target all relevant 4chan domains to ensure isolation
-        String[] domains = {"sys.4chan.org", "boards.4chan.org", ".4chan.org", "4chan.org", "sys.4channel.org", "boards.4channel.org", ".4channel.org"};
-        
-        for (String domain : domains) {
-            String baseUrl = "https://" + (domain.startsWith(".") ? domain.substring(1) : domain);
-            String existingCookies = cm.getCookie(baseUrl);
-            if (existingCookies != null && !existingCookies.isEmpty()) {
-                for (String part : existingCookies.split(";")) {
-                    String name = part.trim().split("=")[0];
-                    if (!name.isEmpty()) {
-                        // Expire every single cookie found on these domains
-                        cm.setCookie(baseUrl, name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=" + domain + ";");
-                    }
-                }
-            }
-        }
-        cm.flush();
+        // Clear stale ticket immediately
+        ticket = "";
 
-        // Also clear local/session storage for 4chan domains via JS
-        evaluateJavascript("localStorage.clear(); sessionStorage.clear();", null);
+        // Drop all in-memory captcha state so nothing stale bleeds into the fresh session.
+        globalPayloads.clear();
+        globalCooldowns.clear();
+        globalExpiries.clear();
 
-        maybeToast("4chan session cleared. Restarting...", true);
-        
-        // After clearing, trigger a hard reset to get fresh tokens
-        hardReset(true, true);
+        AndroidUtils.runOnUiThread(() -> {
+            CookieManager cm = CookieManager.getInstance();
+            cm.removeAllCookies(null);
+            cm.flush();
+
+            evaluateJavascript("localStorage.clear(); sessionStorage.clear();", null);
+
+            maybeToast("4chan session cleared.", true);
+
+            // Do NOT re-include the (now erased) ticket in the next load.
+            hardReset(true, false);
+        });
     }
 
     // Syncs cookies from a background OkHttp response back to the WebView
@@ -1069,7 +1086,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
     private void onResetSession() {
         new androidx.appcompat.app.AlertDialog.Builder(getContext())
                 .setTitle("Reset Session?")
-                .setMessage("This will clear 4chan session cookies, localStorage, and restart the captcha process. Use this if you are stuck or seeing consistent errors.")
+                .setMessage("This will clear all session cookies, localStorage for all sites (!) and restart the captcha process. Use this if you are stuck or seeing consistent errors.")
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> clearFingerprintCookies())
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
