@@ -41,6 +41,11 @@ public class OptionalSwipeViewPager extends ViewPager {
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
+        // Don't intercept when multiple fingers are down (pinching)
+        if (ev.getPointerCount() > 1) {
+            return false;
+        }
+
         try {
             return swipingEnabled && super.onInterceptTouchEvent(ev);
         } catch (IllegalArgumentException ignored) {

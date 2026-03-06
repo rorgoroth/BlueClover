@@ -525,6 +525,9 @@ public class ImageViewerController extends Controller implements ImageViewerPres
             return;
         }
 
+        // Pause all video/gif players before starting transition
+        ((ImageViewerAdapter) pager.getAdapter()).pauseAll();
+
         Bitmap cached = ThumbnailView.getCachedBitmap(postImage.getThumbnailUrl().toString());
         if (cached != null) {
             doPreviewOutAnimation(postImage, cached);

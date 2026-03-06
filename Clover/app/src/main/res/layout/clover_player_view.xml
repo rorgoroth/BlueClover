@@ -9,4 +9,4 @@
     app:auto_show="false"
     app:show_timeout="3000"
     app:animation_enabled="false"
-    app:surface_type="texture_view" />
+    app:surface_type="surface_view" />
