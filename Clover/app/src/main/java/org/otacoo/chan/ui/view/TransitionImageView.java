@@ -21,13 +21,14 @@ import static org.otacoo.chan.utils.AndroidUtils.enableHighEndAnimations;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.view.View;
 
@@ -35,20 +36,22 @@ public class TransitionImageView extends View {
     private static final String TAG = "TransitionImageView";
 
     private Bitmap bitmap;
-    private Matrix matrix = new Matrix();
-    private Paint paint = new Paint();
-    private RectF bitmapRect = new RectF();
-    private RectF destRect = new RectF();
-    private RectF sourceImageRect = new RectF();
-    private PointF sourceOverlap = new PointF();
-    private RectF destClip = new RectF();
+    private final Matrix matrix = new Matrix();
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private final RectF bitmapRect = new RectF();
+    private final RectF destRect = new RectF();
+    private final RectF sourceImageRect = new RectF();
+    private final PointF sourceOverlap = new PointF();
+    private final RectF destClip = new RectF();
     private float progress;
     private float stateScale;
     private float stateBitmapScaleDiff;
     private PointF stateBitmapSize;
     private PointF statePos;
     private float fromRounding = 0.0f;
-    private Path roundingPath = new Path();
+
+    private BitmapShader bitmapShader;
+    private Bitmap lastBitmap;
 
     public TransitionImageView(Context context) {
         super(context);
@@ -65,13 +68,19 @@ public class TransitionImageView extends View {
         init();
     }
 
+    private void init() {
+    }
+
     public void setBitmap(Bitmap bitmap) {
         this.bitmap = bitmap;
+        if (bitmap == null) return;
         bitmapRect.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
 
         // Center inside method
         float selfWidth = getWidth();
         float selfHeight = getHeight();
+
+        if (selfWidth == 0 || selfHeight == 0) return;
 
         float destScale = Math.min(
                 selfWidth / (float) bitmap.getWidth(),
@@ -93,6 +102,7 @@ public class TransitionImageView extends View {
                                    float rounding) {
         this.bitmap = bitmap;
         this.fromRounding = rounding;
+        if (bitmap == null) return;
         bitmapRect.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
 
         if (stateBitmapSize != null) {
@@ -130,6 +140,7 @@ public class TransitionImageView extends View {
 
     public void setProgress(float progress) {
         this.progress = progress;
+        if (bitmap == null) return;
 
         RectF output;
         if (statePos != null) {
@@ -141,6 +152,8 @@ public class TransitionImageView extends View {
             // Center inside method
             float selfWidth = getWidth();
             float selfHeight = getHeight();
+
+            if (selfWidth == 0 || selfHeight == 0) return;
 
             float destScale = Math.min(
                     selfWidth / (float) bitmap.getWidth(),
@@ -176,29 +189,30 @@ public class TransitionImageView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
+        if (bitmap == null || bitmap.isRecycled()) {
+            return;
+        }
 
-        if (bitmap != null) {
-            canvas.save();
-            if (progress < 1f) {
-                if (!enableHighEndAnimations()) {
-                    canvas.clipRect(destClip);
-                } else {
-                    float rounding = lerp(fromRounding, 0.0f, progress);
-                    roundingPath.reset();
-                    roundingPath.addRoundRect(destClip, rounding, rounding, Path.Direction.CW);
-                    canvas.clipPath(roundingPath);
-                }
+        float rounding = 0f;
+        if (progress < 1f) {
+            rounding = enableHighEndAnimations() ? lerp(fromRounding, 0.0f, progress) : 0f;
+        }
+
+        if (rounding > 0.5f) {
+            if (bitmapShader == null || lastBitmap != bitmap) {
+                bitmapShader = new BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+                lastBitmap = bitmap;
+                paint.setShader(bitmapShader);
             }
+            bitmapShader.setLocalMatrix(matrix);
+            canvas.drawRoundRect(destClip, rounding, rounding, paint);
+        } else {
+            paint.setShader(null);
+            canvas.save();
+            canvas.clipRect(destClip);
             canvas.drawBitmap(bitmap, matrix, paint);
-
             canvas.restore();
         }
-    }
-
-    private void init() {
-        paint.setAntiAlias(true);
-        paint.setFilterBitmap(true);
     }
 
     private float lerp(float a, float b, float x) {

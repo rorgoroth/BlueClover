@@ -78,6 +78,7 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
     protected SwipeRefreshLayout drawer;
     protected RecyclerView recyclerView;
     protected DrawerAdapter drawerAdapter;
+    private Runnable pendingOnDrawerClosed;
 
     @Inject
     WatchManager watchManager;
@@ -120,6 +121,17 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
         drawerAdapter.setPinnedSearches(ChanSettings.getPinnedSearches());
         drawerAdapter.onPinsChanged(watchManager.getAllPins());
 
+        drawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
+            @Override
+            public void onDrawerClosed(View drawerView) {
+                if (pendingOnDrawerClosed != null) {
+                    Runnable r = pendingOnDrawerClosed;
+                    pendingOnDrawerClosed = null;
+                    r.run();
+                }
+            }
+        });
+
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(drawerAdapter.getItemTouchHelperCallback());
         itemTouchHelper.attachToRecyclerView(recyclerView);
 
@@ -157,19 +169,13 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
 
     @Override
     public void onPinClicked(Pin pin) {
-        drawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
-            @Override
-            public void onDrawerClosed(View drawerView) {
-                drawerLayout.removeDrawerListener(this);
-                openPin(pin);
-            }
-        });
+        pendingOnDrawerClosed = () -> openPin(pin);
         drawerLayout.closeDrawer(drawer);
     }
 
     @Override
     public void onPinnedSearchClicked(ChanSettings.PinnedSearch search) {
-        // Resolve board first (cheap), then animate drawer closed, navigate after.
+        // Resolve board first (cheap), navigate after.
         // Look up the site by its stable SiteRegistry class ID.
         // siteClassId defaults to 0 (4chan) for entries saved before this field existed.
         List<Site> allSites = siteRepository.all().getAll();
@@ -197,38 +203,36 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
         }
 
         final Board finalBoard = board;
-        final Loadable loadable = Loadable.forCatalog(board);
+        final Loadable loadable = Loadable.forCatalog(finalBoard);
         loadable.searchQuery = Uri.decode(search.searchTerm);
 
-        drawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
-            @Override
-            public void onDrawerClosed(View drawerView) {
-                drawerLayout.removeDrawerListener(this);
-                Controller top = getTop();
-                if (top instanceof DoubleNavigationController) {
-                    DoubleNavigationController dnc = (DoubleNavigationController) top;
-                    if (dnc.getLeftController() instanceof BrowseController) {
-                        BrowseController bc = (BrowseController) dnc.getLeftController();
-                        bc.setBoard(finalBoard);
-                        bc.loadBoard(loadable);
-                        dnc.switchToController(true);
-                    }
-                } else if (top instanceof ToolbarNavigationController) {
-                    ToolbarNavigationController tnc = (ToolbarNavigationController) top;
-                    if (tnc.getTop() instanceof BrowseController) {
-                        BrowseController bc = (BrowseController) tnc.getTop();
-                        bc.setBoard(finalBoard);
-                        bc.loadBoard(loadable);
-                    } else {
-                        BrowseController browseController = new BrowseController(context);
-                        tnc.pushController(browseController);
-                        browseController.setBoard(finalBoard);
-                        browseController.loadBoard(loadable);
-                    }
-                }
-            }
-        });
+        pendingOnDrawerClosed = () -> openPinnedSearch(finalBoard, loadable);
         drawerLayout.closeDrawer(drawer);
+    }
+
+    private void openPinnedSearch(Board board, Loadable loadable) {
+        Controller top = getTop();
+        if (top instanceof DoubleNavigationController) {
+            DoubleNavigationController dnc = (DoubleNavigationController) top;
+            if (dnc.getLeftController() instanceof BrowseController) {
+                BrowseController bc = (BrowseController) dnc.getLeftController();
+                bc.setBoard(board);
+                bc.loadBoard(loadable);
+                dnc.switchToController(true);
+            }
+        } else if (top instanceof ToolbarNavigationController) {
+            ToolbarNavigationController tnc = (ToolbarNavigationController) top;
+            if (tnc.getTop() instanceof BrowseController) {
+                BrowseController bc = (BrowseController) tnc.getTop();
+                bc.setBoard(board);
+                bc.loadBoard(loadable);
+            } else {
+                BrowseController browseController = new BrowseController(context);
+                tnc.pushController(browseController);
+                browseController.setBoard(board);
+                browseController.loadBoard(loadable);
+            }
+        }
     }
 
     public void openPin(Pin pin) {

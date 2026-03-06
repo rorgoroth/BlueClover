@@ -50,7 +50,7 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
-import android.view.animation.DecelerateInterpolator;
+import android.view.animation.PathInterpolator;
 import android.widget.CheckBox;
 import android.widget.Toast;
 
@@ -97,8 +97,8 @@ import okhttp3.ResponseBody;
 
 public class ImageViewerController extends Controller implements ImageViewerPresenter.Callback {
     private static final String TAG = "ImageViewerController";
-    private static final int TRANSITION_DURATION = 300;
-    private static final float TRANSITION_FINAL_ALPHA = 0.85f;
+    private static final int TRANSITION_DURATION = 350;
+    private static final float TRANSITION_FINAL_ALPHA = 1.0f;
 
     private static final int VOLUME_ID = 1;
 
@@ -365,7 +365,7 @@ public class ImageViewerController extends Controller implements ImageViewerPres
 
     public void onVideoError(MultiImageView multiImageView) {
         if (ChanSettings.videoErrorIgnore.get()) {
-            Toast.makeText(context, R.string.image_open_failed, Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, R.string.video_playback_failed, Toast.LENGTH_SHORT).show();
         } else {
             @SuppressLint("InflateParams")
             View notice = LayoutInflater.from(context).inflate(R.layout.dialog_video_error, null);
@@ -456,7 +456,7 @@ public class ImageViewerController extends Controller implements ImageViewerPres
 
         startAnimation.play(progress);
         startAnimation.setDuration(TRANSITION_DURATION);
-        startAnimation.setInterpolator(new DecelerateInterpolator(3f));
+        startAnimation.setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
         startAnimation.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationStart(Animator animation) {
@@ -525,48 +525,9 @@ public class ImageViewerController extends Controller implements ImageViewerPres
             return;
         }
 
-        // Pause all video/gif players before starting transition
         ((ImageViewerAdapter) pager.getAdapter()).pauseAll();
-
-        Bitmap cached = ThumbnailView.getCachedBitmap(postImage.getThumbnailUrl().toString());
-        if (cached != null) {
-            doPreviewOutAnimation(postImage, cached);
-            return;
-        }
-
-        OkHttpClient client = injector().instance(OkHttpClient.class);
-        Request request = new Request.Builder().url(postImage.getThumbnailUrl().toString()).build();
-        outTransitionCall = client.newCall(request);
-        outTransitionCall.enqueue(new Callback() {
-            @Override
-            public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                outTransitionCall = null;
-                Log.e(TAG, "onFailure for preview out transition in ImageViewerController, cannot show correct transition bitmap", e);
-                AndroidUtils.runOnUiThread(() -> doPreviewOutAnimation(postImage, null));
-            }
-
-            @Override
-            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                try {
-                    if (response.isSuccessful()) {
-                        try (ResponseBody body = response.body()) {
-                            if (body != null) {
-                                byte[] data = body.bytes();
-                                Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-                                AndroidUtils.runOnUiThread(() -> doPreviewOutAnimation(postImage, bitmap));
-                            } else {
-                                AndroidUtils.runOnUiThread(() -> doPreviewOutAnimation(postImage, null));
-                            }
-                        }
-                    } else {
-                        AndroidUtils.runOnUiThread(() -> doPreviewOutAnimation(postImage, null));
-                    }
-                } finally {
-                    response.close();
-                    outTransitionCall = null;
-                }
-            }
-        });
+        imageViewerCallback.onBeforePreviewDestroy(this, postImage);
+        previewOutAnimationEnded(postImage);
     }
 
     private void doPreviewOutAnimation(PostImage postImage, Bitmap bitmap) {
@@ -616,7 +577,7 @@ public class ImageViewerController extends Controller implements ImageViewerPres
             endAnimation.play(progress);
         }
         endAnimation.setDuration(TRANSITION_DURATION);
-        endAnimation.setInterpolator(new DecelerateInterpolator(3f));
+        endAnimation.setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
         endAnimation.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {

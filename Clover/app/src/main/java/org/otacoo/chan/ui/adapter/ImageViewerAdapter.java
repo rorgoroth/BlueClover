@@ -94,7 +94,9 @@ public class ImageViewerAdapter extends ViewPagerAdapter {
     public void setVolume(PostImage postImage, boolean muted) {
         // It must be loaded, or the user is not able to click the menu item.
         MultiImageView view = find(postImage);
-        view.setVolume(muted);
+        if (view != null) {
+            view.setVolume(muted);
+        }
     }
 
     public MultiImageView.Mode getMode(PostImage postImage) {
@@ -118,12 +120,22 @@ public class ImageViewerAdapter extends ViewPagerAdapter {
 
     public void toggleTransparency(PostImage postImage) {
         MultiImageView view = find(postImage);
-        view.toggleTransparency();
+        if (view != null) {
+            view.toggleTransparency();
+        }
     }
 
     public void setOrientation(PostImage postImage, int orientation) {
         MultiImageView view = find(postImage);
-        view.setOrientation(orientation);
+        if (view != null) {
+            view.setOrientation(orientation);
+        }
+    }
+
+    public void pauseAll() {
+        for (MultiImageView view : loadedViews) {
+            view.onPause(null);
+        }
     }
 
     private static class ModeChange {

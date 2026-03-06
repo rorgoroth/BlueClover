@@ -21,9 +21,6 @@ import static org.otacoo.chan.Chan.injector;
 import static org.otacoo.chan.utils.AndroidUtils.getString;
 import static org.otacoo.chan.utils.AndroidUtils.sp;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -48,7 +45,6 @@ import androidx.core.content.ContextCompat;
 
 import org.otacoo.chan.R;
 import org.otacoo.chan.utils.AndroidUtils;
-import org.otacoo.chan.utils.Logger;
 
 import java.io.IOException;
 
@@ -82,8 +78,6 @@ public class ThumbnailView extends View {
 
     private Call currentCall;
     private String currentUrl;
-    private int fadeTime = 200;
-    private ValueAnimator fadeAnimation;
     private boolean hidden = false;
 
     private boolean circular = false;
@@ -130,14 +124,12 @@ public class ThumbnailView extends View {
         textPaint.setTextSize(sp(14));
         textPaint.setTextAlign(Paint.Align.CENTER);
         backgroundPaint.setColor(0x22000000);
-        endAnimations();
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         cancelRequest();
-        endAnimations();
     }
 
     public void setUrl(String url, int width, int height) {
@@ -157,7 +149,7 @@ public class ThumbnailView extends View {
         Bitmap cached = sMemoryCache.get(url);
         if (cached != null) {
             setImageBitmap(cached);
-            onImageSet(true);
+            onImageSet();
             return;
         }
 
@@ -174,7 +166,7 @@ public class ThumbnailView extends View {
                 AndroidUtils.runOnUiThread(() -> {
                     error = true;
                     errorText = getString(R.string.thumbnail_load_failed_network);
-                    onImageSet(false);
+                    onImageSet();
                 });
             }
 
@@ -189,7 +181,7 @@ public class ThumbnailView extends View {
                     AndroidUtils.runOnUiThread(() -> {
                         error = true;
                         errorText = getString(R.string.thumbnail_load_failed_server);
-                        onImageSet(false);
+                        onImageSet();
                     });
                     response.close();
                     return;
@@ -205,13 +197,13 @@ public class ThumbnailView extends View {
                         sMemoryCache.put(url, bitmap);
                         AndroidUtils.runOnUiThread(() -> {
                             setImageBitmap(bitmap);
-                            onImageSet(false);
+                            onImageSet();
                         });
                     } else {
                         AndroidUtils.runOnUiThread(() -> {
                             error = true;
                             errorText = getString(R.string.thumbnail_load_failed_server);
-                            onImageSet(false);
+                            onImageSet();
                         });
                     }
                 } catch (IOException e) {
@@ -266,36 +258,18 @@ public class ThumbnailView extends View {
         }
     }
 
-    public void setFadeTime(int fadeTime) {
-        this.fadeTime = fadeTime;
-    }
-
     public Bitmap getBitmap() {
         return bitmap;
     }
 
     public void hide(boolean animateIfNeeded) {
         hidden = true;
-        if (getAlpha() == 0f) return;
-
-        if (animateIfNeeded && fadeAnimation == null && bitmap != null && !calculate) {
-            animate().alpha(0f).setDuration(150);
-        } else {
-            setAlpha(0f);
-        }
-        endAnimations();
+        setAlpha(0f);
     }
 
     public void show(boolean animateIfNeeded) {
         hidden = false;
-        if (getAlpha() == 1f) return;
-
-        if (animateIfNeeded && fadeAnimation == null && bitmap != null && !calculate) {
-            animate().alpha(1f).setDuration(150);
-        } else {
-            setAlpha(1f);
-        }
-        endAnimations();
+        setAlpha(1f);
     }
 
     @Override
@@ -337,7 +311,7 @@ public class ThumbnailView extends View {
                     getWidth() - getPaddingRight(), getHeight() - getPaddingBottom());
 
             // Gray background if thumbnail is not yet loaded and no foreground icon is set.
-            if ((bitmap == null || fadeAnimation != null) && foreground == null) {
+            if (bitmap == null && foreground == null) {
                 if (circular) {
                     canvas.drawRoundRect(outputRect, width / 2.0f, height / 2.0f, backgroundPaint);
                 } else {
@@ -451,13 +425,9 @@ public class ThumbnailView extends View {
         }
     }
 
-    private void onImageSet(boolean isImmediate) {
+    private void onImageSet() {
         clearAnimation();
-        if (fadeTime > 0 && !isImmediate && !hidden) {
-            runFadeInAnimation();
-        } else {
-            setAlpha(1f);
-        }
+        setAlpha(1f);
     }
 
     public void setLabelText(String text) {
@@ -474,35 +444,7 @@ public class ThumbnailView extends View {
             calculate = true;
             bitmapShader = new BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
         }
-        endAnimations();
         invalidate();
-    }
-
-    private void runFadeInAnimation() {
-        fadeAnimation = ValueAnimator.ofFloat(0.0f, 1.0f);
-        fadeAnimation.setDuration(fadeTime);
-        fadeAnimation.addUpdateListener(v -> {
-            bitmapPaint.setAlpha((int) (((float) v.getAnimatedValue()) * 255));
-            invalidate();
-        });
-        fadeAnimation.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                fadeAnimation = null;
-                if (bitmapPaint.getAlpha() != ((int) getAlpha() * 255)) {
-                    bitmapPaint.setAlpha((int) (getAlpha() * 255));
-                    invalidate();
-                }
-            }
-        });
-        fadeAnimation.start();
-    }
-
-    private void endAnimations() {
-        if (fadeAnimation != null) {
-            fadeAnimation.end();
-            fadeAnimation = null;
-        }
     }
 
     public void setImageDrawable(Drawable drawable) {

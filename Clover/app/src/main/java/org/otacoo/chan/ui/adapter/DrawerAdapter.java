@@ -82,6 +82,7 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     private List<Pin> pins = new ArrayList<>();
     private List<ChanSettings.PinnedSearch> pinnedSearches = new ArrayList<>();
     private Pin highlighted;
+    private Pin previousHighlighted;
 
     public DrawerAdapter(Callback callback) {
         inject(this);
@@ -90,6 +91,7 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
     public void setPinHighlighted(Pin highlighted) {
+        this.previousHighlighted = this.highlighted;
         this.highlighted = highlighted;
     }
 
@@ -314,10 +316,13 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
     public void updateHighlighted(RecyclerView recyclerView) {
+        int offset = getPinOffset();
         for (int i = 0; i < pins.size(); i++) {
-            PinViewHolder holder = (PinViewHolder) recyclerView.findViewHolderForAdapterPosition(i + getPinOffset());
+            Pin pin = pins.get(i);
+            if (pin != highlighted && pin != previousHighlighted) continue;
+            PinViewHolder holder = (PinViewHolder) recyclerView.findViewHolderForAdapterPosition(i + offset);
             if (holder != null) {
-                updatePinViewHolder(holder, pins.get(i));
+                updatePinViewHolder(holder, pin);
             }
         }
     }
