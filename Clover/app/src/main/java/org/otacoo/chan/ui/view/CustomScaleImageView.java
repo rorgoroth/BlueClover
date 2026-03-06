@@ -17,20 +17,36 @@
  */
 package org.otacoo.chan.ui.view;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.AttributeSet;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
 
 public class CustomScaleImageView extends SubsamplingScaleImageView {
     private Callback callback;
+    private final GestureDetector gestureDetector;
 
     public CustomScaleImageView(Context context) {
-        super(context);
+        this(context, null);
     }
 
     public CustomScaleImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
+
+        // Image zooming
+        setMinimumDpi(60);
+        setDoubleTapZoomDpi(120);
+
+        gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                performClick();
+                return true;
+            }
+        });
     }
 
     public void setCallback(Callback callback) {
@@ -51,6 +67,32 @@ public class CustomScaleImageView extends SubsamplingScaleImageView {
         if (callback != null) {
             callback.onReady();
         }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        // Handle gestures (like single tap) separately
+        gestureDetector.onTouchEvent(event);
+
+        // If we have multiple pointers, we are likely zooming/pinching.
+        if (event.getPointerCount() > 1) {
+            getParent().requestDisallowInterceptTouchEvent(true);
+        }
+
+        boolean result = super.onTouchEvent(event);
+
+        // If we are zoomed in, don't let parent ViewPager intercept our swipes
+        if (getScale() > getMinScale()) {
+            getParent().requestDisallowInterceptTouchEvent(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public boolean performClick() {
+        return super.performClick();
     }
 
     public interface Callback {
