@@ -190,7 +190,7 @@ public class MediaSettingsController extends SettingsController implements
                     R.string.setting_video_auto_loop_description));
 
             video.add(new IntegerSettingView(this,
-                    ChanSettings.videoExoPlayerTimeout,
+                    ChanSettings.videoPlayerTimeout,
                     R.string.setting_video_timeout,
                     R.string.setting_video_timeout_description));
 

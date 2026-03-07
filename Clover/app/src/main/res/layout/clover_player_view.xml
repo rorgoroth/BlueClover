@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.media3.ui.PlayerView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/exo_player_view"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    app:controller_layout_id="@layout/custom_exo_controller"
-    app:use_controller="true"
-    app:auto_show="false"
-    app:show_timeout="3000"
-    app:animation_enabled="false"
-    app:surface_type="surface_view" />
+    android:layout_height="match_parent">
+
+    <org.videolan.libvlc.util.VLCVideoLayout
+        android:id="@+id/vlc_video_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- We'll hide the custom controller for now or re-implement it later if needed -->
+    <include
+        android:id="@+id/vlc_controller"
+        layout="@layout/custom_exo_controller"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:visibility="gone" />
+
+</FrameLayout>

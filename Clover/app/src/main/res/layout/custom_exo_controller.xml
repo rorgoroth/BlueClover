@@ -13,17 +13,13 @@
         android:gravity="center"
         android:orientation="horizontal">
 
-        <!-- Left section: Rewind -->
-
-        <!-- Center section: Play/Pause -->
-
         <View
             android:layout_width="45dp"
             android:layout_height="0dp"
             android:layout_weight="1" />
 
         <ImageButton
-            android:id="@id/exo_rew"
+            android:id="@+id/vlc_rew"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
@@ -33,20 +29,17 @@
             android:src="@drawable/ic_rewind_white_24dp" />
 
         <ImageButton
-            android:id="@id/exo_play_pause"
-            style="@style/ExoStyledControls.Button.Center.PlayPause"
+            android:id="@+id/vlc_play_pause"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/_play_pause"
-            android:src="@drawable/ic_play_arrow_white_24dp" />
-
-        <!-- Right section: Fast Forward -->
+            android:src="@drawable/ic_play_circle_filled_white" />
 
         <ImageButton
-            android:id="@id/exo_ffwd"
+            android:id="@+id/vlc_ffwd"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
@@ -55,16 +48,13 @@
             android:scaleType="fitCenter"
             android:src="@drawable/ic_fast_forward_white_24dp" />
 
-        <!-- Playback speed on the far right of this row -->
-
         <View
-            android:id="@+id/View2"
-            android:layout_width="0dp"
+            android:layout_width="25dp"
             android:layout_height="0dp"
             android:layout_weight="1" />
 
         <TextView
-            android:id="@id/exo_playback_speed"
+            android:id="@+id/vlc_playback_speed"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
             android:gravity="center"
@@ -85,7 +75,7 @@
         android:orientation="horizontal">
 
         <TextView
-            android:id="@id/exo_position"
+            android:id="@+id/vlc_position"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:includeFontPadding="false"
@@ -95,14 +85,17 @@
             android:textColor="#FFFFFF"
             android:textSize="12sp" />
 
-        <androidx.media3.ui.DefaultTimeBar
-            android:id="@id/exo_progress"
+        <SeekBar
+            android:id="@+id/vlc_progress"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:progressTint="#FFFFFF"
+            android:progressBackgroundTint="#80FFFFFF"
+            android:thumbTint="#FFFFFF" />
 
         <TextView
-            android:id="@id/exo_duration"
+            android:id="@+id/vlc_duration"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:includeFontPadding="false"

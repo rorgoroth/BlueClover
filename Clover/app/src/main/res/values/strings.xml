@@ -552,7 +552,7 @@ Crash reports do not collect any personally identifiable information."
 
     <string name="setting_group_reset">Privacy &amp; Data</string>
     <string name="setting_confirm_clear_hides">Are you sure you want to clear all thread hides?</string>
-    <string name="setting_confirm_clear_cookies">Are you sure you want to clear all saved cookies?</string>
+    <string name="setting_confirm_clear_cookies">This will clear all sites\' cookies. Are you sure?</string>
 
     <!-- Behavior reply group -->
     <string name="settings_group_reply">Reply</string>

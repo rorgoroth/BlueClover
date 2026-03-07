@@ -19,6 +19,7 @@ package org.otacoo.chan.ui.view;
 
 import static org.otacoo.chan.Chan.inject;
 import static org.otacoo.chan.Chan.injector;
+import static org.otacoo.chan.utils.AndroidUtils.dp;
 
 import android.content.ClipData;
 import android.content.Context;
@@ -33,34 +34,26 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.PorterDuff;
 import android.graphics.RectF;
-import android.media.MediaPlayer;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.OptIn;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
-import androidx.media3.common.C;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
-import androidx.media3.common.PlaybackException;
-import androidx.media3.common.Player;
-import androidx.media3.common.Tracks;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.datasource.DataSource;
-import androidx.media3.datasource.DefaultDataSource;
-import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.source.ProgressiveMediaSource;
-import androidx.media3.ui.PlayerView;
 
 import org.otacoo.chan.R;
 import org.otacoo.chan.core.cache.FileCache;
@@ -73,9 +66,17 @@ import org.otacoo.chan.core.settings.ChanSettings;
 import org.otacoo.chan.ui.activity.StartActivity;
 import org.otacoo.chan.utils.AndroidUtils;
 import org.otacoo.chan.utils.Logger;
+import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.Media;
+import org.videolan.libvlc.MediaPlayer;
+import org.videolan.libvlc.util.VLCVideoLayout;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 import javax.inject.Inject;
 
@@ -87,7 +88,7 @@ import okhttp3.ResponseBody;
 import pl.droidsonroids.gif.GifDrawable;
 import pl.droidsonroids.gif.GifImageView;
 
-public class MultiImageView extends FrameLayout implements View.OnClickListener, DefaultLifecycleObserver, Player.Listener {
+public class MultiImageView extends FrameLayout implements View.OnClickListener, DefaultLifecycleObserver {
     public enum Mode {
         UNLOADED, LOWRES, BIGIMAGE, GIF, MOVIE, OTHER
     }
@@ -115,10 +116,26 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
     private FileCacheDownloader videoRequest;
 
     private VideoView videoView;
-    private PlayerView exoVideoView;
+    private VLCVideoLayout vlcVideoLayout;
     private boolean videoError = false;
-    private MediaPlayer mediaPlayer;
-    private ExoPlayer exoPlayer;
+    private LibVLC libVLC;
+    private MediaPlayer vlcMediaPlayer;
+
+    private View vlcController;
+    private ImageButton vlcPlayPause;
+    private SeekBar vlcSeekBar;
+    private TextView vlcPosition;
+    private TextView vlcDuration;
+    private TextView vlcPlaybackSpeed;
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable updateTimeTask = new Runnable() {
+        @Override
+        public void run() {
+            updateProgress();
+            handler.postDelayed(this, 1000);
+        }
+    };
 
     private boolean backgroundToggle;
 
@@ -223,26 +240,38 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
 
     @Override
     public void onPause(@NonNull LifecycleOwner owner) {
-        if (exoPlayer != null) {
-            exoPlayer.setPlayWhenReady(false);
+        if (vlcMediaPlayer != null) {
+            vlcMediaPlayer.pause();
+            vlcPlayPause.setImageResource(R.drawable.ic_play_circle_filled_white);
         } else if (videoView != null) {
             videoView.pause();
         }
     }
 
     public void setVolume(boolean muted) {
-        final float volume = muted ? 0f : 1f;
-        if (exoPlayer != null) {
-            exoPlayer.setVolume(volume);
-        } else if (mediaPlayer != null) {
-            mediaPlayer.setVolume(volume, volume);
+        if (vlcMediaPlayer != null) {
+            vlcMediaPlayer.setVolume(muted ? 0 : 100);
         }
     }
 
     @Override
     public void onClick(View v) {
+        if (vlcController != null && vlcController.getVisibility() == View.VISIBLE) {
+            vlcController.setVisibility(View.GONE);
+        } else if (vlcController != null) {
+            vlcController.setVisibility(View.VISIBLE);
+            handler.removeCallbacks(hideControllerTask);
+            handler.postDelayed(hideControllerTask, ChanSettings.videoPlayerTimeout.get() * 1000L);
+        }
+
         callback.onTap(this);
     }
+
+    private final Runnable hideControllerTask = () -> {
+        if (vlcController != null) {
+            vlcController.setVisibility(View.GONE);
+        }
+    };
 
     @Override
     protected void onAttachedToWindow() {
@@ -475,7 +504,6 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         Toast.makeText(getContext(), R.string.file_not_viewable, Toast.LENGTH_LONG).show();
     }
 
-    @OptIn(markerClass = UnstableApi.class)
     private void setVideoFile(final File file) {
         if (ChanSettings.videoOpenExternal.get()) {
             Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -488,160 +516,202 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
             return;
         }
 
-        // Inflate ExoPlayer view
-        exoVideoView = (PlayerView) LayoutInflater.from(getContext())
-                .inflate(R.layout.clover_player_view, this, false);
+        ArrayList<String> options = new ArrayList<>();
+        options.add("--no-drop-late-frames");
+        options.add("--no-skip-frames");
+        options.add("-vv");
 
-        DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(getContext());
+        libVLC = new LibVLC(getContext(), options);
+        vlcMediaPlayer = new MediaPlayer(libVLC);
 
-        // Build player
-        exoPlayer = new ExoPlayer.Builder(getContext())
-                .setSeekBackIncrementMs(5000)
-                .setSeekForwardIncrementMs(15000)
-                .build();
+        View root = LayoutInflater.from(getContext()).inflate(R.layout.clover_player_view, this, false);
+        vlcVideoLayout = root.findViewById(R.id.vlc_video_layout);
+        vlcController = root.findViewById(R.id.vlc_controller);
 
-        exoVideoView.setPlayer(exoPlayer);
-        exoVideoView.setControllerShowTimeoutMs(ChanSettings.videoExoPlayerTimeout.get() * 1000);
+        setupVlcController();
 
-        // Build MediaItem
-        MediaItem.Builder mediaItemBuilder = new MediaItem.Builder()
-                .setUri(Uri.fromFile(file));
+        vlcMediaPlayer.attachViews(vlcVideoLayout, null, false, false);
 
-        // Use WebM hint to help extractor selection
-        if (file.getName().toLowerCase().endsWith(".webm")) {
-            mediaItemBuilder.setMimeType(MimeTypes.VIDEO_WEBM);
-        }
+        Media media = new Media(libVLC, file.getAbsolutePath());
+        media.setHWDecoderEnabled(true, false);
+        media.addOption(":network-caching=1500");
 
-        MediaItem mediaItem = mediaItemBuilder.build();
+        vlcMediaPlayer.setMedia(media);
+        media.release();
 
-        // MediaSource
-        ProgressiveMediaSource videoSource = new ProgressiveMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(mediaItem);
+        vlcMediaPlayer.setEventListener(event -> {
+            switch (event.type) {
+                case MediaPlayer.Event.Vout:
+                    AndroidUtils.runOnUiThread(() -> {
+                        onModeLoaded(Mode.MOVIE, root);
+                        checkAudioTracks();
+                    });
+                    break;
+                case MediaPlayer.Event.EncounteredError:
+                    onVideoError();
+                    break;
+                case MediaPlayer.Event.EndReached:
+                    AndroidUtils.runOnUiThread(() -> {
+                        if (ChanSettings.videoAutoLoop.get()) {
+                            // EndReached is terminal. Restarting requires stop() then play().
+                            handler.post(() -> {
+                                if (vlcMediaPlayer != null) {
+                                    vlcMediaPlayer.stop();
+                                    vlcMediaPlayer.play();
+                                }
+                            });
+                        } else {
+                            vlcPlayPause.setImageResource(R.drawable.ic_play_circle_filled_white);
+                        }
+                    });
+                    break;
+                case MediaPlayer.Event.Playing:
+                    AndroidUtils.runOnUiThread(() -> {
+                        vlcPlayPause.setImageResource(R.drawable.ic_pause_circle_filled_white);
+                        handler.post(updateTimeTask);
+                    });
+                    break;
+                case MediaPlayer.Event.Paused:
+                    AndroidUtils.runOnUiThread(() -> {
+                        vlcPlayPause.setImageResource(R.drawable.ic_play_circle_filled_white);
+                        handler.removeCallbacks(updateTimeTask);
+                    });
+                    break;
+            }
+        });
 
-        // Player settings
-        exoPlayer.setRepeatMode(ChanSettings.videoAutoLoop.get() ?
-                Player.REPEAT_MODE_ALL : Player.REPEAT_MODE_OFF);
-        exoPlayer.setMediaSource(videoSource);
-        exoPlayer.prepare();
-        exoPlayer.addListener(this);
-        exoPlayer.setVolume(0f);
+        vlcMediaPlayer.setVolume(ChanSettings.videoDefaultMuted.get() ? 0 : 100);
+        vlcMediaPlayer.play();
 
-        // Add player view
         playView.setVisibility(View.GONE);
-        addView(exoVideoView, 0);
+        LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        addView(root, 0, lp);
 
-        exoPlayer.setPlayWhenReady(true);
         callback.onVideoLoaded(this);
     }
 
-    private boolean hasMediaPlayerAudioTracks(MediaPlayer mediaPlayer) {
-        try {
-            for (MediaPlayer.TrackInfo trackInfo : mediaPlayer.getTrackInfo()) {
-                if (trackInfo.getTrackType() == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
-                    return true;
+    private void setupVlcController() {
+        vlcPlayPause = vlcController.findViewById(R.id.vlc_play_pause);
+        vlcSeekBar = vlcController.findViewById(R.id.vlc_progress);
+        vlcPosition = vlcController.findViewById(R.id.vlc_position);
+        vlcDuration = vlcController.findViewById(R.id.vlc_duration);
+        vlcPlaybackSpeed = vlcController.findViewById(R.id.vlc_playback_speed);
+
+        vlcPlayPause.setOnClickListener(v -> {
+            if (vlcMediaPlayer.isPlaying()) {
+                vlcMediaPlayer.pause();
+            } else {
+                // 6 is the constant for ENDED state in LibVLC 3.x
+                if (vlcMediaPlayer.getPlayerState() == 6) {
+                    vlcMediaPlayer.stop();
+                }
+                vlcMediaPlayer.play();
+            }
+        });
+
+        vlcSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    vlcMediaPlayer.setTime(progress);
                 }
             }
 
-            return false;
-        } catch (RuntimeException e) {
-            // getTrackInfo() raises an IllegalStateException on some devices.
-            // Samsung even throws a RuntimeException.
-            // Return a default value.
-            return true;
-        }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                handler.removeCallbacks(updateTimeTask);
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                handler.post(updateTimeTask);
+            }
+        });
+
+        vlcController.findViewById(R.id.vlc_rew).setOnClickListener(v -> vlcMediaPlayer.setTime(Math.max(0, vlcMediaPlayer.getTime() - 5000)));
+        vlcController.findViewById(R.id.vlc_ffwd).setOnClickListener(v -> vlcMediaPlayer.setTime(Math.min(vlcMediaPlayer.getLength(), vlcMediaPlayer.getTime() + 15000)));
+
+        vlcPlaybackSpeed.setOnClickListener(v -> {
+            final float[] speedValues = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
+            List<FloatingMenuItem> speeds = new ArrayList<>();
+            for (int i = 0; i < speedValues.length; i++) {
+                speeds.add(new FloatingMenuItem(i, String.format(Locale.US, "%.2fx", speedValues[i])));
+            }
+
+            FloatingMenu menu = new FloatingMenu(getContext(), vlcPlaybackSpeed, speeds);
+            menu.setAnchor(vlcPlaybackSpeed, Gravity.TOP, 0, -dp(10));
+            menu.setBackgroundDrawable(new ColorDrawable(0xA0000000));
+            menu.setTextColor(Color.WHITE);
+            menu.setCallback(new FloatingMenu.FloatingMenuCallback() {
+                @Override
+                public void onFloatingMenuItemClicked(FloatingMenu menu, FloatingMenuItem item) {
+                    if (item != null) {
+                        int index = (int) item.getId();
+                        float rate = speedValues[index];
+                        vlcMediaPlayer.setRate(rate);
+                        vlcPlaybackSpeed.setText(String.format(Locale.US, "%.1fx", rate));
+                    }
+                }
+
+                @Override
+                public void onFloatingMenuDismissed(FloatingMenu menu) {
+                }
+            });
+            menu.show();
+        });
     }
 
-    private boolean hasMediaPlayerAudioTracks(ExoPlayer mediaPlayer) {
-        for (Tracks.Group group : mediaPlayer.getCurrentTracks().getGroups()) {
-            if (group.getType() == C.TRACK_TYPE_AUDIO) {
-                return true;
+    private void updateProgress() {
+        if (vlcMediaPlayer == null || vlcSeekBar == null) return;
+        long time = vlcMediaPlayer.getTime();
+        long length = vlcMediaPlayer.getLength();
+        vlcSeekBar.setMax((int) length);
+        vlcSeekBar.setProgress((int) time);
+        vlcPosition.setText(formatTime(time));
+        vlcDuration.setText(formatTime(length));
+    }
+
+    private String formatTime(long millis) {
+        int seconds = (int) (millis / 1000) % 60;
+        int minutes = (int) (millis / (1000 * 60)) % 60;
+        int hours = (int) (millis / (1000 * 60 * 60)) % 24;
+        if (hours > 0) return String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds);
+        return String.format(Locale.US, "%02d:%02d", minutes, seconds);
+    }
+
+    private void checkAudioTracks() {
+        if (vlcMediaPlayer != null) {
+            MediaPlayer.TrackDescription[] tracks = vlcMediaPlayer.getAudioTracks();
+            if (tracks != null && tracks.length > 1) { // 0 is Disable, so > 1 means at least one audio track
+                callback.onAudioLoaded(this);
             }
         }
-        return false;
-    }
-
-    @Override
-    public void onIsPlayingChanged(boolean isPlaying) {
-    }
-
-    @Override
-    public void onRenderedFirstFrame() {
-        if (exoVideoView != null) {
-            onModeLoaded(Mode.MOVIE, exoVideoView);
-        }
-    }
-
-    @Override
-    public void onPlayerError(PlaybackException error) {
-        onVideoError();
     }
 
     private void onVideoError() {
         if (!videoError) {
             videoError = true;
-            
-            // Release the player immediately on error to prevent further instability
-            if (exoPlayer != null) {
-                try {
-                    exoPlayer.stop();
-                    exoPlayer.release();
-                } catch (Exception e) {
-                    Logger.e(TAG, "Error while releasing player after playback failure", e);
-                } finally {
-                    exoPlayer = null;
-                }
-            }
-
-            if (exoVideoView != null) {
-                exoVideoView.setPlayer(null);
-            }
-
+            cleanupVlc();
             callback.onVideoError(this);
         }
     }
 
     private void cleanupVideo(VideoView videoView) {
         videoView.stopPlayback();
-        mediaPlayer = null;
     }
 
-    private void cleanupVideo(PlayerView videoView) {
-        Player player = videoView.getPlayer();
-        videoView.setPlayer(null);
-        if (player != null) {
-            player.removeListener(this);
-            try {
-                player.stop();
-                player.release();
-            } catch (Exception e) {
-                Logger.e(TAG, "Error while cleaning up PlayerView", e);
-            }
+    private void cleanupVlc() {
+        handler.removeCallbacks(updateTimeTask);
+        handler.removeCallbacks(hideControllerTask);
+        if (vlcMediaPlayer != null) {
+            vlcMediaPlayer.stop();
+            vlcMediaPlayer.detachViews();
+            vlcMediaPlayer.release();
+            vlcMediaPlayer = null;
         }
-        if (player == exoPlayer) {
-            exoPlayer = null;
-        }
-    }
-
-    @Override
-    public void onTracksChanged(Tracks tracks) {
-        if (exoPlayer != null) {
-            boolean hasAudio = false;
-            boolean hasVideo = false;
-            for (Tracks.Group group : tracks.getGroups()) {
-                if (group.getType() == C.TRACK_TYPE_AUDIO) {
-                    hasAudio = true;
-                } else if (group.getType() == C.TRACK_TYPE_VIDEO) {
-                    hasVideo = true;
-                }
-            }
-
-            if (hasAudio) {
-                callback.onAudioLoaded(this);
-            }
-
-            if (!hasVideo && exoVideoView != null) {
-                onModeLoaded(Mode.MOVIE, exoVideoView);
-            }
+        if (libVLC != null) {
+            libVLC.release();
+            libVLC = null;
         }
     }
 
@@ -796,8 +866,6 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
             View child = getChildAt(i);
             if (child instanceof VideoView) {
                 cleanupVideo((VideoView) child);
-            } else if (child instanceof PlayerView) {
-                cleanupVideo((PlayerView) child);
             } else if (child instanceof GifImageView) {
                 GifImageView gif = (GifImageView) child;
                 if (gif.getDrawable() instanceof GifDrawable) {
@@ -806,20 +874,7 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
             }
         }
 
-        if (exoPlayer != null) {
-            // Detach from the PlayerView on main so the surface is freed immediately
-            if (exoVideoView != null) {
-                exoVideoView.setPlayer(null);
-            }
-            try {
-                exoPlayer.stop();
-                exoPlayer.release();
-            } catch (Exception e) {
-                Logger.e(TAG, "Error during final exoPlayer cleanup", e);
-            } finally {
-                exoPlayer = null;
-            }
-        }
+        cleanupVlc();
     }
 
     private void onModeLoaded(Mode mode, View view) {
@@ -832,8 +887,6 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
                     if (child != view) {
                         if (child instanceof VideoView) {
                             cleanupVideo((VideoView) child);
-                        } else if (child instanceof PlayerView) {
-                            cleanupVideo((PlayerView) child);
                         }
 
                         removeViewAt(i);

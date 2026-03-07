@@ -201,7 +201,7 @@ public class ChanSettings {
 
     public static final BooleanSetting videoDefaultMuted;
     public static final BooleanSetting videoAutoLoop;
-    public static final IntegerSetting videoExoPlayerTimeout;
+    public static final IntegerSetting videoPlayerTimeout;
 
     public static final BooleanSetting watchEnabled;
     public static final BooleanSetting watchCountdown;
@@ -306,7 +306,7 @@ public class ChanSettings {
 //        saveBoardFolder = new BooleanSetting(p, "preference_save_subboard", false);
         videoDefaultMuted = new BooleanSetting(p, "preference_video_default_muted", true);
         videoAutoLoop = new BooleanSetting(p, "preference_video_loop", true);
-        videoExoPlayerTimeout = new IntegerSetting(p, "preference_video_exoplayer_timeout", 5);
+        videoPlayerTimeout = new IntegerSetting(p, "preference_video_player_timeout", 5);
 
         watchEnabled = new BooleanSetting(p, "preference_watch_enabled", false);
         watchEnabled.addCallback((setting, value) ->
