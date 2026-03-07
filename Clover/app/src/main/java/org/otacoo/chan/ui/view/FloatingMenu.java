@@ -21,6 +21,7 @@ import static org.otacoo.chan.utils.AndroidUtils.dp;
 import static org.otacoo.chan.utils.AndroidUtils.getAttrColor;
 
 import android.content.Context;
+import android.graphics.drawable.ColorDrawable;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -60,6 +61,8 @@ public class FloatingMenu {
 
     private ListPopupWindow popupWindow;
     private FloatingMenuCallback callback;
+    private Integer backgroundColor;
+    private Integer foregroundColor;
 
     public FloatingMenu(Context context, View anchor, List<FloatingMenuItem> items) {
         this.context = context;
@@ -121,6 +124,14 @@ public class FloatingMenu {
         this.callback = callback;
     }
 
+    public void setBackgroundColor(int color) {
+        this.backgroundColor = color;
+    }
+
+    public void setForegroundColor(int color) {
+        this.foregroundColor = color;
+    }
+
     public void setManageItems(boolean manageItems) {
         this.manageItems = manageItems;
     }
@@ -151,6 +162,10 @@ public class FloatingMenu {
             popupWindow.setHeight(popupHeight);
         }
 
+        if (backgroundColor != null) {
+            popupWindow.setBackgroundDrawable(new ColorDrawable(backgroundColor));
+        }
+
         int selection = 0;
         if (manageItems) {
             for (int i = 0; i < items.size(); i++) {
@@ -165,7 +180,7 @@ public class FloatingMenu {
         if (adapter != null) {
             popupWindow.setAdapter(adapter);
         } else {
-            popupWindow.setAdapter(new FloatingMenuArrayAdapter(context, R.layout.toolbar_menu_item, items));
+            popupWindow.setAdapter(new FloatingMenuArrayAdapter(context, R.layout.toolbar_menu_item, items, foregroundColor));
         }
 
         if (manageItems) {
@@ -212,6 +227,11 @@ public class FloatingMenu {
         });
 
         popupWindow.show();
+
+        if (backgroundColor != null && popupWindow.getListView() != null) {
+            popupWindow.getListView().setBackgroundColor(0);
+        }
+
         popupWindow.setSelection(selection);
     }
 
@@ -243,8 +263,11 @@ public class FloatingMenu {
     }
 
     private static class FloatingMenuArrayAdapter extends ArrayAdapter<FloatingMenuItem> {
-        public FloatingMenuArrayAdapter(Context context, int resource, List<FloatingMenuItem> objects) {
+        private final Integer foregroundColor;
+
+        public FloatingMenuArrayAdapter(Context context, int resource, List<FloatingMenuItem> objects, Integer foregroundColor) {
             super(context, resource, objects);
+            this.foregroundColor = foregroundColor;
         }
 
         @Override
@@ -258,7 +281,13 @@ public class FloatingMenu {
             TextView textView = (TextView) convertView;
             textView.setText(item.getText());
             textView.setEnabled(item.isEnabled());
-            textView.setTextColor(getAttrColor(getContext(), item.isEnabled() ? R.attr.text_color_primary : R.attr.text_color_hint));
+
+            if (foregroundColor != null && item.isEnabled()) {
+                textView.setTextColor(foregroundColor);
+            } else {
+                textView.setTextColor(getAttrColor(getContext(), item.isEnabled() ? R.attr.text_color_primary : R.attr.text_color_hint));
+            }
+
             textView.setTypeface(AndroidUtils.ROBOTO_MEDIUM);
 
             return textView;

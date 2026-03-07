@@ -34,7 +34,6 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.PorterDuff;
 import android.graphics.RectF;
-import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -96,6 +95,8 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
     private static final String TAG = "MultiImageView";
     //for checkstyle to not be dumb about local final vars
     private static final int BACKGROUND_COLOR = Color.argb(255, 211, 217, 241);
+    private static final float[] VLC_CYCLE_SPEED_VALUES = {0.5f, 1.0f, 1.5f, 2.0f};
+    private static final float[] VLC_MENU_SPEED_VALUES = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
 
     @Inject
     FileCache fileCache;
@@ -121,12 +122,19 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
     private LibVLC libVLC;
     private MediaPlayer vlcMediaPlayer;
 
+    private View vlcControllerContainer;
     private View vlcController;
     private ImageButton vlcPlayPause;
     private SeekBar vlcSeekBar;
     private TextView vlcPosition;
     private TextView vlcDuration;
     private TextView vlcPlaybackSpeed;
+    private ImageButton vlcMute;
+    private ImageButton vlcBack;
+    private ImageButton vlcDownload;
+    private View vlcTopController;
+
+    private boolean isMuted = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable updateTimeTask = new Runnable() {
@@ -249,17 +257,19 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
     }
 
     public void setVolume(boolean muted) {
+        this.isMuted = muted;
         if (vlcMediaPlayer != null) {
             vlcMediaPlayer.setVolume(muted ? 0 : 100);
         }
+        updateMuteButtonIcon();
     }
 
     @Override
     public void onClick(View v) {
-        if (vlcController != null && vlcController.getVisibility() == View.VISIBLE) {
-            vlcController.setVisibility(View.GONE);
-        } else if (vlcController != null) {
-            vlcController.setVisibility(View.VISIBLE);
+        if (vlcControllerContainer != null && vlcControllerContainer.getVisibility() == View.VISIBLE) {
+            vlcControllerContainer.setVisibility(View.GONE);
+        } else if (vlcControllerContainer != null) {
+            vlcControllerContainer.setVisibility(View.VISIBLE);
             handler.removeCallbacks(hideControllerTask);
             handler.postDelayed(hideControllerTask, ChanSettings.videoPlayerTimeout.get() * 1000L);
         }
@@ -268,8 +278,8 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
     }
 
     private final Runnable hideControllerTask = () -> {
-        if (vlcController != null) {
-            vlcController.setVisibility(View.GONE);
+        if (vlcControllerContainer != null) {
+            vlcControllerContainer.setVisibility(View.GONE);
         }
     };
 
@@ -526,6 +536,7 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
 
         View root = LayoutInflater.from(getContext()).inflate(R.layout.clover_player_view, this, false);
         vlcVideoLayout = root.findViewById(R.id.vlc_video_layout);
+        vlcControllerContainer = root.findViewById(R.id.vlc_controller_container);
         vlcController = root.findViewById(R.id.vlc_controller);
 
         setupVlcController();
@@ -580,7 +591,8 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
             }
         });
 
-        vlcMediaPlayer.setVolume(ChanSettings.videoDefaultMuted.get() ? 0 : 100);
+        isMuted = ChanSettings.videoDefaultMuted.get();
+        vlcMediaPlayer.setVolume(isMuted ? 0 : 100);
         vlcMediaPlayer.play();
 
         playView.setVisibility(View.GONE);
@@ -596,6 +608,15 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         vlcPosition = vlcController.findViewById(R.id.vlc_position);
         vlcDuration = vlcController.findViewById(R.id.vlc_duration);
         vlcPlaybackSpeed = vlcController.findViewById(R.id.vlc_playback_speed);
+        vlcMute = vlcControllerContainer.findViewById(R.id.vlc_mute);
+        vlcBack = vlcControllerContainer.findViewById(R.id.vlc_back);
+        vlcDownload = vlcControllerContainer.findViewById(R.id.vlc_download);
+        vlcTopController = vlcControllerContainer.findViewById(R.id.vlc_top_controller);
+
+        boolean immersive = ChanSettings.useImmersiveModeForGallery.get();
+        vlcBack.setVisibility(immersive ? View.VISIBLE : View.GONE);
+        vlcDownload.setVisibility(immersive ? View.VISIBLE : View.GONE);
+        updateTopControllerVisibility();
 
         vlcPlayPause.setOnClickListener(v -> {
             if (vlcMediaPlayer.isPlaying()) {
@@ -632,22 +653,36 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         vlcController.findViewById(R.id.vlc_ffwd).setOnClickListener(v -> vlcMediaPlayer.setTime(Math.min(vlcMediaPlayer.getLength(), vlcMediaPlayer.getTime() + 15000)));
 
         vlcPlaybackSpeed.setOnClickListener(v -> {
-            final float[] speedValues = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
+            float currentRate = vlcMediaPlayer.getRate();
+            int index = -1;
+            for (int i = 0; i < VLC_CYCLE_SPEED_VALUES.length; i++) {
+                if (Math.abs(VLC_CYCLE_SPEED_VALUES[i] - currentRate) < 0.01f) {
+                    index = i;
+                    break;
+                }
+            }
+            index = (index + 1) % VLC_CYCLE_SPEED_VALUES.length;
+            float newRate = VLC_CYCLE_SPEED_VALUES[index];
+            vlcMediaPlayer.setRate(newRate);
+            vlcPlaybackSpeed.setText(String.format(Locale.US, "%.1fx", newRate));
+        });
+
+        vlcPlaybackSpeed.setOnLongClickListener(v -> {
             List<FloatingMenuItem> speeds = new ArrayList<>();
-            for (int i = 0; i < speedValues.length; i++) {
-                speeds.add(new FloatingMenuItem(i, String.format(Locale.US, "%.2fx", speedValues[i])));
+            for (int i = 0; i < VLC_MENU_SPEED_VALUES.length; i++) {
+                speeds.add(new FloatingMenuItem(i, String.format(Locale.US, "%.2fx", VLC_MENU_SPEED_VALUES[i])));
             }
 
             FloatingMenu menu = new FloatingMenu(getContext(), vlcPlaybackSpeed, speeds);
             menu.setAnchor(vlcPlaybackSpeed, Gravity.TOP, 0, -dp(10));
-            menu.setBackgroundDrawable(new ColorDrawable(0xA0000000));
-            menu.setTextColor(Color.WHITE);
+            menu.setBackgroundColor(Color.argb(160, 0, 0, 0));
+            menu.setForegroundColor(Color.WHITE);
             menu.setCallback(new FloatingMenu.FloatingMenuCallback() {
                 @Override
                 public void onFloatingMenuItemClicked(FloatingMenu menu, FloatingMenuItem item) {
                     if (item != null) {
                         int index = (int) item.getId();
-                        float rate = speedValues[index];
+                        float rate = VLC_MENU_SPEED_VALUES[index];
                         vlcMediaPlayer.setRate(rate);
                         vlcPlaybackSpeed.setText(String.format(Locale.US, "%.1fx", rate));
                     }
@@ -658,7 +693,34 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
                 }
             });
             menu.show();
+            return true;
         });
+
+        vlcMute.setOnClickListener(v -> {
+            isMuted = !isMuted;
+            setVolume(isMuted);
+            callback.onVideoMuteClicked(this, isMuted);
+        });
+
+        vlcBack.setOnClickListener(v -> callback.onVideoBackClicked(this));
+        vlcDownload.setOnClickListener(v -> callback.onVideoDownloadClicked(this));
+
+        updateMuteButtonIcon();
+    }
+
+    private void updateTopControllerVisibility() {
+        if (vlcTopController != null) {
+            boolean backVisible = vlcBack != null && vlcBack.getVisibility() == View.VISIBLE;
+            boolean downloadVisible = vlcDownload != null && vlcDownload.getVisibility() == View.VISIBLE;
+            boolean muteVisible = vlcMute != null && vlcMute.getVisibility() == View.VISIBLE;
+            vlcTopController.setVisibility(backVisible || downloadVisible || muteVisible ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void updateMuteButtonIcon() {
+        if (vlcMute != null) {
+            vlcMute.setImageResource(isMuted ? R.drawable.ic_volume_off_white_24dp : R.drawable.ic_volume_up_white_24dp);
+        }
     }
 
     private void updateProgress() {
@@ -683,9 +745,13 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         if (vlcMediaPlayer != null) {
             MediaPlayer.TrackDescription[] tracks = vlcMediaPlayer.getAudioTracks();
             if (tracks != null && tracks.length > 1) { // 0 is Disable, so > 1 means at least one audio track
+                if (ChanSettings.useImmersiveModeForGallery.get()) {
+                    vlcMute.setVisibility(View.VISIBLE);
+                }
                 callback.onAudioLoaded(this);
             }
         }
+        updateTopControllerVisibility();
     }
 
     private void onVideoError() {
@@ -939,6 +1005,12 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         void onModeLoaded(MultiImageView multiImageView, Mode mode);
 
         void onAudioLoaded(MultiImageView multiImageView);
+
+        void onVideoMuteClicked(MultiImageView multiImageView, boolean muted);
+
+        void onVideoBackClicked(MultiImageView multiImageView);
+
+        void onVideoDownloadClicked(MultiImageView multiImageView);
     }
 
     public static class NoMusicServiceCommandContext extends ContextWrapper {

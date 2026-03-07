@@ -5,16 +5,18 @@
     android:layout_gravity="bottom"
     android:background="#A0000000"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingBottom="30dp"
+    android:paddingTop="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
+        android:layout_marginBottom="10dp"
         android:gravity="center"
         android:orientation="horizontal">
 
         <View
-            android:layout_width="45dp"
+            android:layout_width="50dp"
             android:layout_height="0dp"
             android:layout_weight="1" />
 
@@ -49,7 +51,7 @@
             android:src="@drawable/ic_fast_forward_white_24dp" />
 
         <View
-            android:layout_width="25dp"
+            android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_weight="1" />
 
@@ -57,6 +59,7 @@
             android:id="@+id/vlc_playback_speed"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
+            android:layout_marginEnd="5dp"
             android:gravity="center"
             android:minWidth="48dp"
             android:padding="8dp"
@@ -81,9 +84,11 @@
             android:includeFontPadding="false"
             android:paddingEnd="8dp"
             android:paddingStart="0dp"
+            android:layout_marginStart="5dp"
             android:singleLine="true"
             android:textColor="#FFFFFF"
-            android:textSize="12sp" />
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
         <SeekBar
             android:id="@+id/vlc_progress"
@@ -101,9 +106,11 @@
             android:includeFontPadding="false"
             android:paddingEnd="0dp"
             android:paddingStart="8dp"
+            android:layout_marginEnd="5dp"
             android:singleLine="true"
             android:textColor="#FFFFFF"
-            android:textSize="12sp" />
+            android:textSize="12sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
 </LinearLayout>
