@@ -127,6 +127,8 @@ public class BoardsMenuPresenter implements SimpleObservable.SimpleObserver<Void
         }
 
         public int findBoardPosition(Board board) {
+            if (board == null) return 0;
+
             int position = 0;
             for (Item item : items) {
 

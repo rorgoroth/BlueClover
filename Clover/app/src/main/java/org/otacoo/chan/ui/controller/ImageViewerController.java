@@ -659,7 +659,9 @@ public class ImageViewerController extends Controller implements ImageViewerPres
     }
 
     private void setBackgroundAlpha(float alpha) {
-        navigationController.view.setBackgroundColor(Color.argb((int) (alpha * TRANSITION_FINAL_ALPHA * 255f), 0, 0, 0));
+        float overlayFinalAlpha = (ChanSettings.useImmersiveModeForGallery.get() && isInImmersiveMode)
+            ? 1f : TRANSITION_FINAL_ALPHA;
+        navigationController.view.setBackgroundColor(Color.argb((int) (alpha * overlayFinalAlpha * 255f), 0, 0, 0));
 
         if (alpha == 0f) {
             setStatusBarColor(statusBarColorPrevious);
