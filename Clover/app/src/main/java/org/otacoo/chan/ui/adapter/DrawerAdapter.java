@@ -312,6 +312,9 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             if (holder != null) {
                 updatePinViewHolder(holder, pin);
             }
+            else {
+                notifyItemChanged(index + getPinOffset());
+            }
         }
     }
 
