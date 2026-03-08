@@ -70,9 +70,21 @@ public class BrowsePresenter implements SimpleObservable.SimpleObserver<Void> {
     }
 
     public void loadWithDefaultBoard() {
-        Board first = firstBoard();
-        if (first != null) {
-            loadBoard(first);
+        Board defaultBoard = null;
+
+        // Find the first board that isn't a special board (like the ban status board)
+        search:
+        for (BoardRepository.SiteBoards item : savedBoardsObservable.get()) {
+            for (Board board : item.boards) {
+                if (!"ban".equals(board.code)) {
+                    defaultBoard = board;
+                    break search;
+                }
+            }
+        }
+
+        if (defaultBoard != null) {
+            loadBoard(defaultBoard);
         }
     }
 
@@ -83,9 +95,12 @@ public class BrowsePresenter implements SimpleObservable.SimpleObserver<Void> {
     @Override
     public void onUpdate(SimpleObservable<Void> o, Void arg) {
         if (o == savedBoardsObservable) {
-            if (!hadBoards && hasBoards()) {
+            boolean has = hasBoards();
+            if (!hadBoards && has) {
                 hadBoards = true;
                 loadWithDefaultBoard();
+            } else if (hadBoards && !has) {
+                hadBoards = false;
             }
         }
     }
