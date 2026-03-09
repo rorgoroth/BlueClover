@@ -27,6 +27,9 @@ import org.otacoo.chan.core.model.BoardReference;
 import org.otacoo.chan.core.model.Post;
 import org.otacoo.chan.core.model.SiteReference;
 import org.otacoo.chan.core.site.Site;
+import org.otacoo.chan.utils.Logger;
+
+import java.sql.SQLException;
 
 /**
  * Something that can be loaded, like a board or thread.
@@ -39,6 +42,8 @@ import org.otacoo.chan.core.site.Site;
  */
 @DatabaseTable(tableName = "loadable")
 public class Loadable implements SiteReference, BoardReference {
+    private static final String TAG = "Loadable";
+
     @DatabaseField(generatedId = true)
     public int id;
 
@@ -74,10 +79,10 @@ public class Loadable implements SiteReference, BoardReference {
     @DatabaseField
     public int listViewTop;
 
-    @DatabaseField
+    @DatabaseField(columnName = "lastViewed", defaultValue = "-1")
     public int lastViewed = -1;
 
-    @DatabaseField
+    @DatabaseField(columnName = "lastLoaded", defaultValue = "-1")
     public int lastLoaded = -1;
 
     @DatabaseField
@@ -295,39 +300,52 @@ public class Loadable implements SiteReference, BoardReference {
 
     public static Loadable readFromParcel(Parcel parcel) {
         Loadable loadable = new Loadable();
-        /*loadable.id = */
-        parcel.readInt();
-        loadable.siteId = parcel.readInt();
-        loadable.mode = parcel.readInt();
-        loadable.boardCode = parcel.readString();
-        loadable.no = parcel.readInt();
-        loadable.title = parcel.readString();
-        loadable.listViewIndex = parcel.readInt();
-        loadable.listViewTop = parcel.readInt();
-        loadable.draftName = parcel.readString();
-        loadable.draftSubject = parcel.readString();
-        loadable.draftComment = parcel.readString();
-        loadable.draftOptions = parcel.readString();
-        loadable.draftFlag = parcel.readString();
+        try {
+            loadable.id = parcel.readInt();
+            loadable.siteId = parcel.readInt();
+            loadable.mode = parcel.readInt();
+            loadable.boardCode = parcel.readString();
+            loadable.no = parcel.readInt();
+            loadable.title = parcel.readString();
+            loadable.listViewIndex = parcel.readInt();
+            loadable.listViewTop = parcel.readInt();
+            loadable.lastViewed = parcel.readInt();
+            loadable.lastLoaded = parcel.readInt();
+            loadable.draftName = parcel.readString();
+            loadable.draftSubject = parcel.readString();
+            loadable.draftComment = parcel.readString();
+            loadable.draftOptions = parcel.readString();
+            loadable.draftFlag = parcel.readString();
+            loadable.markedNo = parcel.readInt();
+            loadable.searchQuery = parcel.readString();
+        } catch (Exception e) {
+            Logger.e(TAG, "Failed to read from parcel", e);
+        }
         return loadable;
     }
 
     public void writeToParcel(Parcel parcel) {
-        parcel.writeInt(id);
-        // TODO(multi-site)
-        parcel.writeInt(siteId);
-        parcel.writeInt(mode);
-        // TODO(multi-site)
-        parcel.writeString(boardCode);
-        parcel.writeInt(no);
-        parcel.writeString(title);
-        parcel.writeInt(listViewIndex);
-        parcel.writeInt(listViewTop);
-        parcel.writeString(draftName);
-        parcel.writeString(draftSubject);
-        parcel.writeString(draftComment);
-        parcel.writeString(draftOptions);
-        parcel.writeString(draftFlag);
+        try {
+            parcel.writeInt(id);
+            parcel.writeInt(siteId);
+            parcel.writeInt(mode);
+            parcel.writeString(boardCode);
+            parcel.writeInt(no);
+            parcel.writeString(title);
+            parcel.writeInt(listViewIndex);
+            parcel.writeInt(listViewTop);
+            parcel.writeInt(lastViewed);
+            parcel.writeInt(lastLoaded);
+            parcel.writeString(draftName);
+            parcel.writeString(draftSubject);
+            parcel.writeString(draftComment);
+            parcel.writeString(draftOptions);
+            parcel.writeString(draftFlag);
+            parcel.writeInt(markedNo);
+            parcel.writeString(searchQuery);
+        } catch (Exception e) {
+            Logger.e(TAG, "Failed to write to parcel", e);
+        }
     }
 
     public Loadable copy() {
@@ -350,6 +368,8 @@ public class Loadable implements SiteReference, BoardReference {
         copy.draftComment = draftComment;
         copy.draftOptions = draftOptions;
         copy.draftFlag = draftFlag;
+        copy.markedNo = markedNo;
+        copy.searchQuery = searchQuery;
 
         return copy;
     }
