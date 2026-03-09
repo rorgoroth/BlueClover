@@ -19,6 +19,7 @@ package org.otacoo.chan.ui.settings;
 
 import static org.otacoo.chan.utils.AndroidUtils.dp;
 
+import org.otacoo.chan.utils.AndroidUtils;
 import android.content.DialogInterface;
 import android.text.InputType;
 import android.view.View;
@@ -93,5 +94,9 @@ public class IntegerSettingView extends SettingView implements View.OnClickListe
                 .create();
         dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
         dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().getDecorView().setBackgroundColor(
+                    AndroidUtils.getAttrColor(v.getContext(), R.attr.backcolor));
+        }
     }
 }

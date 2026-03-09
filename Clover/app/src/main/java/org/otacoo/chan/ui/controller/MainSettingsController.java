@@ -18,6 +18,7 @@
 package org.otacoo.chan.ui.controller;
 
 import static org.otacoo.chan.Chan.inject;
+import static org.otacoo.chan.utils.AndroidUtils.getAttrColor;
 import static org.otacoo.chan.utils.AndroidUtils.getString;
 
 import android.animation.Animator;
@@ -316,6 +317,9 @@ public class MainSettingsController extends SettingsController implements Settin
 
         AlertDialog dialog = builder.create();
         dialog.setOnShowListener(d -> {
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().getDecorView().setBackgroundColor(getAttrColor(context, R.attr.backcolor));
+            }
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
                 boolean allChecked = true;
                 for (boolean checked : checkedItems) {

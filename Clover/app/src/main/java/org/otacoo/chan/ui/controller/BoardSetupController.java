@@ -192,6 +192,7 @@ public class BoardSetupController extends Controller implements View.OnClickList
 
         Window window = dialog.getWindow();
         assert window != null;
+        window.getDecorView().setBackgroundColor(getAttrColor(context, R.attr.backcolor));
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             //noinspection deprecation
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);

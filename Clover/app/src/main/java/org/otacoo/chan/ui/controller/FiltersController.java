@@ -188,6 +188,10 @@ public class FiltersController extends Controller implements
                 })
                 .show();
 
+        if (alertDialog.getWindow() != null) {
+            alertDialog.getWindow().getDecorView().setBackgroundColor(getAttrColor(context, R.attr.backcolor));
+        }
+
         filterLayout.setCallback(enabled -> alertDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(enabled));
 
         filterLayout.setFilter(filter);
