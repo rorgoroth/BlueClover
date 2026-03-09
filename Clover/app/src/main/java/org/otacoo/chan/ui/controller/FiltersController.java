@@ -97,6 +97,7 @@ public class FiltersController extends Controller implements
             case HIDE -> getString(R.string.filter_hide);
             case COLOR -> getString(R.string.filter_color);
             case REMOVE -> getString(R.string.filter_remove);
+            case WATCH -> getString(R.string.filter_watch);
         };
     }
 

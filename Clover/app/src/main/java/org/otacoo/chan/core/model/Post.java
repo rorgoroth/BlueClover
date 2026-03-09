@@ -72,6 +72,8 @@ public class Post {
 
     public final boolean filterRemove;
 
+    public final boolean filterWatch;
+
     /**
      * This post replies to the these ids.
      */
@@ -144,6 +146,7 @@ public class Post {
         filterHighlightedColor = builder.filterHighlightedColor;
         filterStub = builder.filterStub;
         filterRemove = builder.filterRemove;
+        filterWatch = builder.filterWatch;
 
         isSavedReply = builder.isSavedReply;
 
@@ -274,6 +277,7 @@ public class Post {
         public int filterHighlightedColor;
         public boolean filterStub;
         public boolean filterRemove;
+        public boolean filterWatch;
 
         public boolean isSavedReply;
 
@@ -399,6 +403,11 @@ public class Post {
             filterHighlightedColor = highlightedColor;
             filterStub = stub;
             filterRemove = remove;
+            return this;
+        }
+
+        public Builder filterWatch(boolean watch) {
+            filterWatch = watch;
             return this;
         }
 

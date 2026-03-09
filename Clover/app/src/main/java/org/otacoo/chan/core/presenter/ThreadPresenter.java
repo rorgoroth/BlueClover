@@ -294,6 +294,17 @@ public class ThreadPresenter implements
             loadable.searchQuery = null; // consume so a later refresh doesn't re-apply it
         }
 
+        if (loadable.isCatalogMode()) {
+            for (Post post : result.posts) {
+                if (post.filterWatch) {
+                    Loadable pinLoadable = databaseManager.getDatabaseLoadableManager().get(Loadable.forThread(loadable.site, post.board, post.no));
+                    if (watchManager.findPinByLoadable(pinLoadable) == null) {
+                        watchManager.createPin(pinLoadable, post);
+                    }
+                }
+            }
+        }
+
         showPosts();
 
         if (loadable.isThreadMode()) {
@@ -352,6 +363,17 @@ public class ThreadPresenter implements
 
         // Update the last seen indicator
         showPosts();
+    }
+
+    public void onPostSeen(int postNo) {
+        if (loadable.isThreadMode() && !ignoreLastViewedUpdates) {
+            loadable.setLastViewed(Math.max(loadable.lastViewed, postNo));
+            
+            Pin pin = watchManager.findPinByLoadable(loadable);
+            if (pin != null) {
+                watchManager.onPostSeen(pin, postNo);
+            }
+        }
     }
 
     public void onNewPostsViewClicked() {

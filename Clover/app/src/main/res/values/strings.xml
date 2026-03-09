@@ -227,6 +227,7 @@ Re-enable this permission in the app settings if you permanently disabled it."</
     <string name="filter_hide">Hide post</string>
     <string name="filter_color">Highlight post</string>
     <string name="filter_remove">Remove post</string>
+    <string name="filter_watch">Watch post</string>
     <string name="filter_invalid_pattern">Invalid pattern</string>
     <string name="filter_preview">Test your filter</string>
     <string name="filter_no_matches">Does not match</string>
@@ -236,7 +237,7 @@ Re-enable this permission in the app settings if you permanently disabled it."</
     <string name="filter_help">
 <![CDATA[
 Filters act on a given pattern and a place to search the pattern.<br>
-If the pattern matches then the post can be hidden or highlighted.<br>
+If the pattern matches then the post can be hidden, highlighted or watched.<br>
 
 <h4>For tripcodes, names and country names:</h4>
 <p>
@@ -255,6 +256,11 @@ If the pattern matches then the post can be hidden or highlighted.<br>
     <i>foo bar</i> matches but <i>foo</i> does not.<br>
     <br>
     3. Regular expressions. <tt>/^>implying/</tt> for example.
+</p>
+<h4>For Watch post action:</h4>
+<p>This option will watch (or pin) a thread if it matches the filter.
+Triggers when the catalog refreshes and *only* works for Comment types of filters.
+If any ohter filters are enabled for it, it will not work.
 </p>
 ]]>
     </string>
