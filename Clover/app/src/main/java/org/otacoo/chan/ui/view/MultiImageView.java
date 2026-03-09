@@ -103,10 +103,43 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         UNLOADED, LOWRES, BIGIMAGE, GIF, MOVIE, OTHER
     }
 
+    private static class DecoderExclusionRule {
+        final String decoderNamePrefix;
+        final String deviceModel;
+        final String deviceName;
+
+        DecoderExclusionRule(String decoderNamePrefix, String deviceModel, String deviceName) {
+            this.decoderNamePrefix = decoderNamePrefix;
+            this.deviceModel = deviceModel;
+            this.deviceName = deviceName;
+        }
+
+        boolean matches(String decoderName) {
+            if (!decoderName.startsWith(decoderNamePrefix)) {
+                return false;
+            }
+            if (deviceModel == null && deviceName == null) {
+                return true;
+            }
+            return (deviceModel != null && Build.MODEL.equalsIgnoreCase(deviceModel)) ||
+                    (deviceName != null && Build.DEVICE.equalsIgnoreCase(deviceName));
+        }
+    }
+
     private static final String TAG = "MultiImageView";
     //for checkstyle to not be dumb about local final vars
     private static final int BACKGROUND_COLOR = Color.argb(255, 211, 217, 241);
     private static final float[] CYCLE_SPEED_VALUES = {0.5f, 0.75f, 1.0f, 1.5f, 2.0f};
+    
+    // Device decoder exclusions
+    //add(new DecoderExclusionRule("decoder.name", null, null));  // All devices
+    //add(new DecoderExclusionRule("decoder.name", "ModelName", "deviceName"));  // Specific device
+    private static final List<DecoderExclusionRule> VP9_DECODER_EXCLUSIONS = Collections.unmodifiableList(
+            new ArrayList<DecoderExclusionRule>() {{
+                add(new DecoderExclusionRule("OMX.Exynos.vp9.dec", null, null));
+                add(new DecoderExclusionRule("OMX.qcom.video.decoder.vp9", null, "lavender"));
+            }}
+    );
 
     @Inject
     FileCache fileCache;
@@ -528,6 +561,23 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         Toast.makeText(getContext(), R.string.file_not_viewable, Toast.LENGTH_LONG).show();
     }
 
+    private List<MediaCodecInfo> filterExcludedDecoders(List<MediaCodecInfo> decoderInfos) {
+        List<MediaCodecInfo> filtered = new ArrayList<>();
+        for (MediaCodecInfo info : decoderInfos) {
+            boolean excluded = false;
+            for (DecoderExclusionRule rule : VP9_DECODER_EXCLUSIONS) {
+                if (rule.matches(info.name)) {
+                    excluded = true;
+                    break;
+                }
+            }
+            if (!excluded) {
+                filtered.add(info);
+            }
+        }
+        return filtered;
+    }
+
     private void setVideoFile(final File file) {
         if (ChanSettings.videoOpenExternal.get()) {
             Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -543,14 +593,7 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         MediaCodecSelector codecSelector = (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
             List<MediaCodecInfo> decoderInfos = MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
             if (MimeTypes.VIDEO_VP9.equals(mimeType)) {
-                List<MediaCodecInfo> filteredInfos = new ArrayList<>();
-                for (MediaCodecInfo info : decoderInfos) {
-                    // Exclude buggy Exynos decoder
-                    if (!info.name.startsWith("OMX.Exynos.vp9.dec")) {
-                        filteredInfos.add(info);
-                    }
-                }
-                return filteredInfos;
+                return filterExcludedDecoders(decoderInfos);
             }
             return decoderInfos;
         };
