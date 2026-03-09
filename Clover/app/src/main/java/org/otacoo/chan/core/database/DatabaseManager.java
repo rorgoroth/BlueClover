@@ -237,6 +237,12 @@ public class DatabaseManager {
                 if (n == 0) sb.append("None\n");
             }
 
+            // Delete duplicate saved replies
+            sb.append("\n=== Duplicate saved replies deleted ===\n");
+            try (Cursor c = db.rawQuery("DELETE FROM savedreply WHERE id NOT IN (SELECT MIN(id) FROM savedreply GROUP BY site, board, no)", null)) {
+                sb.append("Deleted ").append(c.getCount()).append(" duplicate saved replies.\n");
+            }
+
             // 6. Pins referencing a non-existent loadable
             sb.append("\n=== Orphaned pins (missing loadable) ===\n");
             try (Cursor c = db.rawQuery(
