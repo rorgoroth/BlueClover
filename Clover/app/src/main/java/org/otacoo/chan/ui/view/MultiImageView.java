@@ -55,6 +55,7 @@ import androidx.annotation.OptIn;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
@@ -62,6 +63,9 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.ui.PlayerView;
 
 import org.otacoo.chan.R;
@@ -79,6 +83,7 @@ import org.otacoo.chan.utils.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -185,7 +190,10 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
 
     public void setMode(final Mode newMode, boolean center) {
         if (this.mode != newMode) {
-//            Logger.test("Changing mode from " + this.mode + " to " + newMode + " for " + postImage.thumbnailUrl);
+            cleanup();
+            if (postImage != null && postImage.type == PostImage.Type.MOVIE) {
+                playView.setVisibility(View.VISIBLE);
+            }
             this.mode = newMode;
 
             AndroidUtils.waitForMeasure(this, new AndroidUtils.OnMeasuredCallback() {
@@ -532,8 +540,24 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
             return;
         }
 
+        MediaCodecSelector codecSelector = (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+            List<MediaCodecInfo> decoderInfos = MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+            if (MimeTypes.VIDEO_VP9.equals(mimeType)) {
+                List<MediaCodecInfo> filteredInfos = new ArrayList<>();
+                for (MediaCodecInfo info : decoderInfos) {
+                    // Exclude buggy Exynos decoder
+                    if (!info.name.startsWith("OMX.Exynos.vp9.dec")) {
+                        filteredInfos.add(info);
+                    }
+                }
+                return filteredInfos;
+            }
+            return decoderInfos;
+        };
+
         DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(getContext())
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+                .setMediaCodecSelector(codecSelector)
                 .setEnableDecoderFallback(true);
 
         exoPlayer = new ExoPlayer.Builder(getContext(), renderersFactory).build();

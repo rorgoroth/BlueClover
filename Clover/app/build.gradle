@@ -13,9 +13,10 @@ tasks.register('checkstyle', Checkstyle) {
     classpath = files()
 }
 
-
 afterEvaluate {
-    tasks.findByName('check').dependsOn('checkstyle')
+    tasks.named('check') {
+        dependsOn('checkstyle')
+    }
 }
 
 android {
@@ -35,6 +36,12 @@ android {
         // of the format XXYYZZ, where XX is major, YY is minor, ZZ is patch
         // (watch out for octal notation, never start with a 0)
         versionCode 30105
+    }
+
+    repositories {
+        flatDir {
+            dirs 'libs'
+        }
     }
 
     compileOptions {
@@ -144,29 +151,41 @@ android {
 }
 
 dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.aar'])
     implementation 'androidx.legacy:legacy-support-v13:1.0.0'
+    //noinspection GradleDependency
     implementation 'androidx.appcompat:appcompat:1.5.1'
-    implementation 'androidx.recyclerview:recyclerview:1.1.0'
+    //noinspection GradleDependency
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.cardview:cardview:1.0.0'
-    implementation 'androidx.annotation:annotation:1.1.0'
-    implementation 'androidx.exifinterface:exifinterface:1.3.7'
+    implementation 'androidx.annotation:annotation:1.9.1'
+    implementation 'androidx.exifinterface:exifinterface:1.4.2'
+    //noinspection GradleDependency
     implementation 'com.google.android.material:material:1.1.0'
     //noinspection GradleDependency
     implementation 'androidx.browser:browser:1.8.0'
+    //noinspection GradleDependency
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
 
     implementation 'androidx.media3:media3-exoplayer:1.4.1'
     implementation 'androidx.media3:media3-ui:1.4.1'
+    implementation(name: 'lib-decoder-vp9-release', ext: 'aar')
 
+    //noinspection NewerVersionAvailable
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    //noinspection NewerVersionAvailable
     implementation 'com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0'
+    //noinspection NewerVersionAvailable
     implementation 'com.j256.ormlite:ormlite-core:4.48'
+    //noinspection NewerVersionAvailable
     implementation 'com.j256.ormlite:ormlite-android:4.48'
+    //noinspection NewerVersionAvailable
     implementation 'org.jsoup:jsoup:1.13.1'
     implementation 'pl.droidsonroids.gif:android-gif-drawable:1.2.31'
     implementation 'com.davemorrissey.labs:subsampling-scale-image-view-androidx:3.10.0'
     implementation 'de.greenrobot:eventbus:2.4.1'
     implementation 'org.nibor.autolink:autolink:0.12.0'
+    //noinspection NewerVersionAvailable
     implementation 'com.google.code.gson:gson:2.11.0'
     implementation 'me.xdrop:fuzzywuzzy:1.4.0'
     implementation 'org.codejargon.feather:feather:1.0'
