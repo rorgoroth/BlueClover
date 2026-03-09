@@ -101,8 +101,8 @@ import okhttp3.ResponseBody;
 @OptIn(markerClass = UnstableApi.class)
 public class ImageViewerController extends Controller implements ImageViewerPresenter.Callback {
     private static final String TAG = "ImageViewerController";
-    private static final int TRANSITION_DURATION = 350;
-    private static final int TRANSITION_OUT_DURATION = 250;
+    private static final int TRANSITION_DURATION = 250;
+    private static final int TRANSITION_OUT_DURATION = 200;
     private static final float TRANSITION_FINAL_ALPHA = 0.92f;
 
     private static final int VOLUME_ID = 1;
