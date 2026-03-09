@@ -36,6 +36,7 @@ import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import de.greenrobot.event.EventBus;
 
@@ -509,17 +510,14 @@ public class ChanSettings {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             PinnedSearch that = (PinnedSearch) o;
-            return siteClassId == that.siteClassId
-                    && TextUtils.equals(boardCode, that.boardCode)
-                    && TextUtils.equals(searchTerm, that.searchTerm);
+            return siteClassId == that.siteClassId &&
+                    Objects.equals(boardCode, that.boardCode) &&
+                    Objects.equals(searchTerm, that.searchTerm);
         }
 
         @Override
         public int hashCode() {
-            int result = boardCode != null ? boardCode.hashCode() : 0;
-            result = 31 * result + (searchTerm != null ? searchTerm.hashCode() : 0);
-            result = 31 * result + siteClassId;
-            return result;
+            return Objects.hash(boardCode, searchTerm, siteClassId);
         }
     }
 
