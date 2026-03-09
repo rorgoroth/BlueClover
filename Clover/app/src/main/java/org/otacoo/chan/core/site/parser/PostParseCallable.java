@@ -87,6 +87,9 @@ class PostParseCallable implements Callable<Post> {
                     case REMOVE:
                         post.filter(0, false, true);
                         break;
+                    case WATCH:
+                        post.filterWatch(true);
+                        break;
                 }
             }
         }
