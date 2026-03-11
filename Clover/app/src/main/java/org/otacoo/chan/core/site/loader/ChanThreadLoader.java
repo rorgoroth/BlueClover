@@ -327,7 +327,7 @@ public class ChanThreadLoader implements JsonReaderRequest.RequestListener<ChanL
 
     private void clearPendingRunnable() {
         if (pendingFuture != null) {
-            Logger.d(TAG, "Cleared timer");
+            //Logger.d(TAG, "Cleared timer");
             pendingFuture.cancel(false);
             pendingFuture = null;
         }

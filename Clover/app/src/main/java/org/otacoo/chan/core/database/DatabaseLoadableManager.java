@@ -161,7 +161,7 @@ public class DatabaseLoadableManager {
                             .query();
 
                     if (results.size() > 1) {
-                        Log.w(TAG, "Multiple loadables found for where Loadable.equals() would return true");
+                        //Log.w(TAG, "Multiple loadables found for where Loadable.equals() would return true");
                         for (Loadable result : results) {
                             Log.w(TAG, result.toString());
                         }
@@ -169,11 +169,11 @@ public class DatabaseLoadableManager {
 
                     Loadable result = results.isEmpty() ? null : results.get(0);
                     if (result == null) {
-                        Log.d(TAG, "Creating loadable");
+                        //Log.d(TAG, "Creating loadable");
                         helper.loadableDao.create(loadable);
                         result = loadable;
                     } else {
-                        Log.d(TAG, "Loadable found in db");
+                        //Log.d(TAG, "Loadable found in db");
                         result.site = SiteRepository.forId(result.siteId);
                         result.board = result.site.board(result.boardCode);
                     }
