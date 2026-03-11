@@ -261,6 +261,10 @@ public class ThreadListLayout extends FrameLayout implements ReplyLayout.ReplyLa
         }
     }
 
+    public void bindReplyLoadable(Loadable loadable) {
+        reply.bindLoadable(loadable);
+    }
+
     public void showPosts(ChanThread thread, PostsFilter filter, boolean initial) {
         boolean threadChanged = showingThread != null && showingThread != thread;
         showingThread = thread;

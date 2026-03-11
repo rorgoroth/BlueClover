@@ -265,6 +265,7 @@ public class ViewThreadController extends ThreadController implements ThreadLayo
         ThreadPresenter presenter = threadLayout.getPresenter();
         if (!loadable.equals(presenter.getLoadable())) {
             presenter.bindLoadable(loadable);
+            threadLayout.bindReplyLoadable(loadable);
             this.loadable = presenter.getLoadable();
             navigation.title = loadable.title;
             ((ToolbarNavigationController) navigationController).toolbar.updateTitle(navigation);

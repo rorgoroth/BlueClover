@@ -123,6 +123,7 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         }
 
         draft = replyManager.getReply(loadable);
+        draft.loadable = loadable;
 
         if (TextUtils.isEmpty(draft.name)) {
             draft.name = loadable.draftName;

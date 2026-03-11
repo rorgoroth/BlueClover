@@ -266,6 +266,10 @@ public class ThreadLayout extends CoordinatorLayout implements
         return presenter;
     }
 
+    public void bindReplyLoadable(Loadable loadable) {
+        threadListLayout.bindReplyLoadable(loadable);
+    }
+
     public void refreshFromSwipe() {
         refreshedFromSwipe = true;
         presenter.requestData();
