@@ -5,6 +5,7 @@
   - Supports DOOM, SRZ BIZNIZ, pink text, flags
   - Detects when user is being rated-limited or needs to pass POWBlock
   - TODO: various posting shenanings like post form tags, certain text formatting, automatic POWBlock bypass, better flow and issue detection
+- **New feature:** Hide flags (issue #6)
 - **App performance (on-going):**
   - Improved background/main thread separation and loading responsiveness, Clover should feel a bit snappier
   - There are still improvements to be made but will require some refactoring
