@@ -12,6 +12,7 @@
 Read the [CHANGES.md](CHANGES.md) file for all the changes made in this fork so far.\
 There has been an extensive backend overhaul and modernization of the app while keeping compatibility with older Android versions and the familiar Clover UX style:
 - Supports the latest 4chan captcha, 4chan pass, Email verification
+- Supports browsing and posting on 8chan
 - Supports browsing & posting on Lainchan and Sushichan
 - Supports multi-file uploads
 - Backup & restore of settings
@@ -21,7 +22,9 @@ There has been an extensive backend overhaul and modernization of the app while 
 - New options (top/bottom arrows, randomize filenames, bottom toolbar & more)
 
 **TODO:**
-- Add support for 8chan.moe
+- Replace Jsoup with a more lightweight HTML parser 
+- Automate POWBlock bypass
+- Improve performance of the app
 
 ## About Clover
 
