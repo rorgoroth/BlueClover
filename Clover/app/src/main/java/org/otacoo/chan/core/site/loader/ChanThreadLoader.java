@@ -19,8 +19,6 @@ package org.otacoo.chan.core.site.loader;
 
 import static org.otacoo.chan.Chan.inject;
 
-import android.text.TextUtils;
-
 import org.otacoo.chan.core.exception.ChanLoaderException;
 import org.otacoo.chan.core.model.ChanThread;
 import org.otacoo.chan.core.model.Post;
@@ -28,7 +26,6 @@ import org.otacoo.chan.core.model.orm.Loadable;
 import org.otacoo.chan.core.net.JsonReaderRequest;
 import org.otacoo.chan.core.site.parser.ChanReader;
 import org.otacoo.chan.core.site.parser.ChanReaderRequest;
-import org.otacoo.chan.ui.helper.PostHelper;
 import org.otacoo.chan.utils.AndroidUtils;
 import org.otacoo.chan.utils.Logger;
 import org.otacoo.chan.utils.Time;
@@ -271,14 +268,6 @@ public class ChanThreadLoader implements JsonReaderRequest.RequestListener<ChanL
         thread.posts.addAll(response.posts);
 
         processResponse(response);
-
-        if (TextUtils.isEmpty(loadable.title)) {
-            loadable.setTitle(PostHelper.getTitle(thread.op, loadable));
-        }
-
-        for (Post post : thread.posts) {
-            post.setTitle(loadable.title);
-        }
 
         lastLoadTime = Time.get();
 
