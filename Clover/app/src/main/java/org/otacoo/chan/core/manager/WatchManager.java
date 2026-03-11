@@ -216,7 +216,7 @@ public class WatchManager {
         pins.add(pin);
         sortListAndApplyOrders();
 
-        databaseManager.runTask(databasePinManager.createPin(pin));
+        databaseManager.runTaskAsync(databasePinManager.createPin(pin));
 
         // apply orders.
         updatePinsInDatabase();
@@ -233,7 +233,7 @@ public class WatchManager {
 
         destroyPinWatcher(pin);
 
-        databaseManager.runTask(databasePinManager.deletePin(pin));
+        databaseManager.runTaskAsync(databasePinManager.deletePin(pin));
         // Update the new orders
         sortListAndApplyOrders();
         updatePinsInDatabase();
@@ -244,7 +244,7 @@ public class WatchManager {
     }
 
     public void updatePin(Pin pin) {
-        databaseManager.runTask(databasePinManager.updatePin(pin));
+        databaseManager.runTaskAsync(databasePinManager.updatePin(pin));
 
         updateState();
 

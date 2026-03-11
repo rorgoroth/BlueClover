@@ -641,7 +641,7 @@ public class ThreadLayout extends CoordinatorLayout implements
     @Override
     public void hidePost(Post post) {
         final ThreadHide threadHide = ThreadHide.fromPost(post);
-        databaseManager.runTask(
+        databaseManager.runTaskAsync(
                 databaseManager.getDatabaseHideManager().addThreadHide(threadHide));
 
         presenter.refreshUI();
@@ -650,7 +650,7 @@ public class ThreadLayout extends CoordinatorLayout implements
         snackbar.setAction(R.string.undo, new OnClickListener() {
             @Override
             public void onClick(View v) {
-                databaseManager.runTask(
+                databaseManager.runTaskAsync(
                         databaseManager.getDatabaseHideManager().removeThreadHide(threadHide));
                 presenter.refreshUI();
             }
