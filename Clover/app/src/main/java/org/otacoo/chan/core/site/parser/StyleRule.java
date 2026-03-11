@@ -55,6 +55,8 @@ public class StyleRule {
 
     private List<Action> actions = new ArrayList<>();
 
+    private boolean hasSpans = false;
+
     private Color color = null;
     private boolean strikeThrough = false;
     private boolean bold = false;
@@ -99,60 +101,70 @@ public class StyleRule {
 
     public StyleRule action(Action action) {
         actions.add(action);
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule color(Color color) {
         this.color = color;
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule link(PostLinkable.Type link) {
         this.link = link;
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule strikeThrough() {
         strikeThrough = true;
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule bold() {
         bold = true;
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule italic() {
         italic = true;
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule monospace() {
         monospace = true;
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule size(int size) {
         this.size = size;
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule relativeSize(float relativeSize) {
         this.relativeSize = relativeSize;
+        hasSpans = true;
 
         return this;
     }
 
     public StyleRule typeface(Typeface typeface) {
         this.customTypeface = typeface;
+        hasSpans = true;
 
         return this;
     }
@@ -217,48 +229,50 @@ public class StyleRule {
             result = action.execute(theme, callback, post, text, element);
         }
 
-        List<Object> spansToApply = new ArrayList<>(2);
+        if (hasSpans) {
+            List<Object> spansToApply = new ArrayList<>(2);
 
-        if (color != null) {
-            spansToApply.add(new ForegroundColorSpanHashed(getColor(theme, color)));
-        }
+            if (color != null) {
+                spansToApply.add(new ForegroundColorSpanHashed(getColor(theme, color)));
+            }
 
-        if (strikeThrough) {
-            spansToApply.add(new StrikethroughSpan());
-        }
+            if (strikeThrough) {
+                spansToApply.add(new StrikethroughSpan());
+            }
 
-        if (bold && italic) {
-            spansToApply.add(new StyleSpan(Typeface.BOLD_ITALIC));
-        } else if (bold) {
-            spansToApply.add(new StyleSpan(Typeface.BOLD));
-        } else if (italic) {
-            spansToApply.add(new StyleSpan(Typeface.ITALIC));
-        }
+            if (bold && italic) {
+                spansToApply.add(new StyleSpan(Typeface.BOLD_ITALIC));
+            } else if (bold) {
+                spansToApply.add(new StyleSpan(Typeface.BOLD));
+            } else if (italic) {
+                spansToApply.add(new StyleSpan(Typeface.ITALIC));
+            }
 
-        if (monospace) {
-            spansToApply.add(new TypefaceSpan("monospace"));
-        }
+            if (monospace) {
+                spansToApply.add(new TypefaceSpan("monospace"));
+            }
 
-        if (size != 0) {
-            spansToApply.add(new AbsoluteSizeSpanHashed(size));
-        }
+            if (size != 0) {
+                spansToApply.add(new AbsoluteSizeSpanHashed(size));
+            }
 
-        if (relativeSize != 0f) {
-            spansToApply.add(new RelativeSizeSpan(relativeSize));
-        }
+            if (relativeSize != 0f) {
+                spansToApply.add(new RelativeSizeSpan(relativeSize));
+            }
 
-        if (customTypeface != null) {
-            spansToApply.add(new CustomTypefaceSpan(customTypeface));
-        }
+            if (customTypeface != null) {
+                spansToApply.add(new CustomTypefaceSpan(customTypeface));
+            }
 
-        if (link != null) {
-            PostLinkable pl = new PostLinkable(theme, result, result, link);
-            post.addLinkable(pl);
-            spansToApply.add(pl);
-        }
+            if (link != null) {
+                PostLinkable pl = new PostLinkable(theme, result, result, link);
+                post.addLinkable(pl);
+                spansToApply.add(pl);
+            }
 
-        if (!spansToApply.isEmpty()) {
-            result = applySpan(result, spansToApply);
+            if (!spansToApply.isEmpty()) {
+                result = applySpan(result, spansToApply);
+            }
         }
 
         // Apply break if not the last element.
