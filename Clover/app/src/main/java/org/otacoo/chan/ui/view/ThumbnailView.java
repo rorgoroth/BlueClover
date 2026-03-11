@@ -189,9 +189,16 @@ public class ThumbnailView extends View {
 
                 try (ResponseBody body = response.body()) {
                     if (body == null) throw new IOException("Empty body");
-                    
+
                     byte[] data = body.bytes();
-                    Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+
+                    BitmapFactory.Options opts = new BitmapFactory.Options();
+                    opts.inJustDecodeBounds = true;
+                    BitmapFactory.decodeByteArray(data, 0, data.length, opts);
+                    opts.inJustDecodeBounds = false;
+                    opts.inSampleSize = calcSampleSize(opts.outWidth, opts.outHeight, width, height);
+
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length, opts);
                     
                     if (bitmap != null) {
                         sMemoryCache.put(url, bitmap);
@@ -213,6 +220,13 @@ public class ThumbnailView extends View {
                 }
             }
         });
+    }
+
+    private static int calcSampleSize(int srcW, int srcH, int dstW, int dstH) {
+        if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return 1;
+        int s = 1;
+        while ((srcW / (s * 2)) >= dstW && (srcH / (s * 2)) >= dstH) s *= 2;
+        return s;
     }
 
     private void cancelRequest() {
