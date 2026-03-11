@@ -171,6 +171,7 @@ public class ThreadPresenter implements
     }
 
     public void requestData() {
+        if (chanLoader == null) return;
         threadPresenterCallback.showLoading();
         chanLoader.requestData();
     }

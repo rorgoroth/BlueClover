@@ -32,6 +32,7 @@ public interface SiteActions {
 
     interface BoardsListener {
         void onBoardsReceived(Boards boards);
+        default void onBoardsFailed(String reason) {}
     }
 
     void post(Reply reply, PostListener postListener);
@@ -44,6 +45,8 @@ public interface SiteActions {
 
         void onPostError(HttpCall httpCall, Exception exception);
     }
+
+    default String verificationUrl() { return null; }
 
     boolean postRequiresAuthentication();
 

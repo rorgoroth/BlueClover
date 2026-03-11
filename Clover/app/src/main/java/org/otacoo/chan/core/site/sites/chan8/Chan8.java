@@ -203,25 +203,16 @@ public class Chan8 extends CommonSite {
                 @Override
                 public void onHttpFail(HttpCall httpCall, Exception e) {
                     Logger.e(TAG, "boards: fetch failed", e);
-                    boardsListener.onBoardsReceived(new Boards(new ArrayList<>()));
+                    boardsListener.onBoardsFailed(
+                            "Could not load board list. Please do the 8chan verification first by" + "completing the security check (PoW bypass), then try again.");
                 }
             });
         }
 
         @Override
-        public void login(LoginRequest loginRequest, SiteActions.LoginListener loginListener) {
-            // 8chan has no username/password — verify by syncing cookies from a browser visit.
-            String url = ((LynxchanEndpoints) site.endpoints()).root().toString();
-            org.otacoo.chan.core.di.NetModule.syncCookiesToJar(url);
-            LoginResponse r = new LoginResponse();
-            if (isLoggedIn()) {
-                r.success = true;
-                r.message = "Session verified.";
-            } else {
-                r.success = false;
-                r.message = "Please open 8chan.moe in your browser, solve the security check and accept the TOS, then tap Login again.";
-            }
-            loginListener.onLoginComplete(null, r);
+        public String verificationUrl() {
+            return isLoggedIn() ? null
+                    : ((LynxchanEndpoints) site.endpoints()).root().toString();
         }
     }
 }

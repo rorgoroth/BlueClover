@@ -25,6 +25,7 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import org.otacoo.chan.controller.Controller;
+import org.otacoo.chan.core.di.NetModule;
 import org.otacoo.chan.ui.helper.RefreshUIMessage;
 import org.otacoo.chan.ui.view.AuthWebView;
 
@@ -126,6 +127,8 @@ public class EmailVerificationController extends Controller {
         isFinished = true;
 
         CookieManager.getInstance().flush();
+        // Sync WebView cookies into the java.net jar so OkHttp and isLoggedIn() see them.
+        NetModule.syncCookiesToJar(initialUrl);
 
         Toast.makeText(context, "Verification successful!", Toast.LENGTH_SHORT).show();
         EventBus.getDefault().post(new RefreshUIMessage("Verification successful"));

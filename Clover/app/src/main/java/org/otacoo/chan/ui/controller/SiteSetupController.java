@@ -231,9 +231,17 @@ public class SiteSetupController extends SettingsController implements SiteSetup
                 context.getString(R.string.setup_site_boards),
                 "",
                 v -> {
-                    BoardSetupController boardSetupController = new BoardSetupController(context);
-                    boardSetupController.setSite(site);
-                    navigationController.pushController(boardSetupController);
+                    String verifUrl = site.actions().verificationUrl();
+                    if (verifUrl != null) {
+                        EmailVerificationController webController =
+                                new EmailVerificationController(context, verifUrl, site.name() + " Verification");
+                        webController.setRequiredCookies("TOS", "POW_TOKEN", "POW_ID");
+                        navigationController.pushController(webController);
+                    } else {
+                        BoardSetupController boardSetupController = new BoardSetupController(context);
+                        boardSetupController.setSite(site);
+                        navigationController.pushController(boardSetupController);
+                    }
                 });
         general.add(boardsLink);
 

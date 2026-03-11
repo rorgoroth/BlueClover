@@ -23,7 +23,9 @@ import android.widget.Toast;
 import org.otacoo.chan.core.manager.BoardManager;
 import org.otacoo.chan.core.model.orm.Board;
 import org.otacoo.chan.core.repository.BoardRepository;
+import org.otacoo.chan.core.site.Boards;
 import org.otacoo.chan.core.site.Site;
+import org.otacoo.chan.core.site.SiteActions;
 import org.otacoo.chan.ui.helper.BoardHelper;
 import org.otacoo.chan.utils.AndroidUtils;
 import org.otacoo.chan.utils.BackgroundUtils;
@@ -82,10 +84,19 @@ public class BoardSetupPresenter implements SimpleObservable.SimpleObserver<Void
         // Always refresh available boards from network when opening the setup screen if the site supports it.
         // This ensures the user can "clean up" or see an up-to-date list of boards if needed.
         if (site.boardsType().canList) {
-            site.actions().boards(boards -> {
-                boardManager.updateAvailableBoardsForSite(site, boards.boards);
-                AndroidUtils.runOnUiThread(() ->
-                        Toast.makeText(AndroidUtils.getAppContext(), "Board list refreshed.", Toast.LENGTH_SHORT).show());
+            site.actions().boards(new SiteActions.BoardsListener() {
+                @Override
+                public void onBoardsReceived(Boards boards) {
+                    boardManager.updateAvailableBoardsForSite(site, boards.boards);
+                    AndroidUtils.runOnUiThread(() ->
+                            Toast.makeText(AndroidUtils.getAppContext(), "Board list refreshed.", Toast.LENGTH_SHORT).show());
+                }
+
+                @Override
+                public void onBoardsFailed(String reason) {
+                    AndroidUtils.runOnUiThread(() ->
+                            Toast.makeText(AndroidUtils.getAppContext(), reason, Toast.LENGTH_LONG).show());
+                }
             });
         }
     }
