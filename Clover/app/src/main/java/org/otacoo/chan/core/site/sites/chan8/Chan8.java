@@ -24,10 +24,12 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.otacoo.chan.core.model.orm.Board;
 import org.otacoo.chan.core.model.orm.Loadable;
+import org.otacoo.chan.core.net.Chan8RateLimit;
 import org.otacoo.chan.core.site.Boards;
 import org.otacoo.chan.core.site.Site;
 import org.otacoo.chan.core.site.SiteActions;
 import org.otacoo.chan.core.site.SiteIcon;
+import org.otacoo.chan.core.site.SiteSetting;
 import org.otacoo.chan.core.site.common.CommonSite;
 import org.otacoo.chan.core.site.common.lynxchan.LynxchanActions;
 import org.otacoo.chan.core.site.common.lynxchan.LynxchanApi;
@@ -37,10 +39,16 @@ import org.otacoo.chan.core.site.http.HttpCall;
 import org.otacoo.chan.core.site.http.LoginRequest;
 import org.otacoo.chan.core.site.http.LoginResponse;
 import org.otacoo.chan.core.site.http.ProgressRequestBody;
+import org.otacoo.chan.core.settings.OptionSettingItem;
+import org.otacoo.chan.core.settings.OptionsSetting;
+import org.otacoo.chan.core.settings.SettingProvider;
+import org.otacoo.chan.core.settings.SharedPreferencesSettingProvider;
+import org.otacoo.chan.utils.AndroidUtils;
 import org.otacoo.chan.utils.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import okhttp3.HttpUrl;
@@ -48,8 +56,51 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 public class Chan8 extends CommonSite {
-    public static final CommonSiteUrlHandler URL_HANDLER = new CommonSiteUrlHandler() {
+
+    public enum PreferredDomain implements OptionSettingItem {
+        AUTO("auto"),
+        MOE("moe"),
+        ST("st"),
+        CC("cc");
+
+        private final String key;
+        PreferredDomain(String k) { this.key = k; }
+
         @Override
+        public String getKey() { return key; }
+    }
+
+    private OptionsSetting<PreferredDomain> preferredDomain;
+
+    @Override
+    public void initializeSettings() {
+        super.initializeSettings();
+        SettingProvider p = new SharedPreferencesSettingProvider(AndroidUtils.getPreferences());
+        preferredDomain = new OptionsSetting<>(p, "preference_chan8_domain", PreferredDomain.class, PreferredDomain.AUTO);
+        applyDomainPreference(preferredDomain.get());
+        preferredDomain.addCallback((setting, value) -> applyDomainPreference(value));
+    }
+
+    private void applyDomainPreference(PreferredDomain pref) {
+        switch (pref) {
+            case MOE: Chan8RateLimit.setForcedDomain(Chan8RateLimit.PRIMARY_DOMAIN); break;
+            case ST:  Chan8RateLimit.setForcedDomain(Chan8RateLimit.SECONDARY_DOMAIN); break;
+            case CC:  Chan8RateLimit.setForcedDomain(Chan8RateLimit.TERTIARY_DOMAIN); break;
+            default:  Chan8RateLimit.setForcedDomain(null); break;
+        }
+    }
+
+    @Override
+    public List<SiteSetting> settings() {
+        List<SiteSetting> list = new ArrayList<>();
+        list.add(SiteSetting.forOption(
+                preferredDomain,
+                "Force 8chan domain",
+                Arrays.asList("Auto (failover)", "8chan.moe", "8chan.st", "8chan.cc")));
+        return list;
+    }
+
+    public static final CommonSiteUrlHandler URL_HANDLER = new CommonSiteUrlHandler() {        @Override
         public Class<? extends Site> getSiteClass() {
             return Chan8.class;
         }

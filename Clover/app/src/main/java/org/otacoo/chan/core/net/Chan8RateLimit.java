@@ -38,8 +38,11 @@ public final class Chan8RateLimit {
             TERTIARY_DOMAIN
         };
 
-    /** Active domain for this session.  In-memory only — resets to primary on restart. */
+    // Active domain for this session.  In-memory only — resets to primary on restart.
     private static volatile String activeDomain = PRIMARY_DOMAIN;
+
+    // User-forced domain; null means auto-failover.
+    private static volatile String forcedDomain = null;
 
     private Chan8RateLimit() {}
 
@@ -51,9 +54,20 @@ public final class Chan8RateLimit {
         return is8chan(url) && url.contains("/.media/");
     }
 
-    /** Returns the currently active 8chan domain (e.g. {@code "8chan.moe"}). */
+    // Returns the currently active 8chan domain
     public static String getActiveDomain() {
-        return activeDomain;
+        String f = forcedDomain;
+        return f != null ? f : activeDomain;
+    }
+
+    // Forces all 8chan traffic to a specific domain for this session.
+    public static void setForcedDomain(String domain) {
+        if (domain == null) {
+            forcedDomain = null;
+        } else if (domain.equals(PRIMARY_DOMAIN) || domain.equals(SECONDARY_DOMAIN) || domain.equals(TERTIARY_DOMAIN)) {
+            forcedDomain = domain;
+            activeDomain = domain;
+        }
     }
 
     /**
@@ -87,6 +101,7 @@ public final class Chan8RateLimit {
      * Only acts when the failing domain is the currently active one.
      */
     public static void notifyDomainUnreachable(String domain) {
+        if (forcedDomain != null) return;
         if (domain != null && domain.equals(activeDomain)) {
             activeDomain = nextDomain(activeDomain);
         }
