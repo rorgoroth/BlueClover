@@ -1,3 +1,29 @@
+## 2026-03-11 – v3.3.0
+
+- **New feature:** Add full support for 8chan (catalog, threads, posting, POW bypass, captchas)
+  - Add an option to force 8chan to use a particular domain (.moe, .st, .cc) (issue #7)
+  - Supports DOOM, SRZ BIZNIZ, pink text, flags
+  - Detects when user is being rated-limited or needs to pass POWBlock
+  - TODO: various posting shenanings like post form tags, certain text formatting, automatic POWBlock bypass, better flow and issue detection
+- **App performance (on-going):**
+  - Improved background/main thread separation and loading responsiveness, Clover should feel a bit snappier
+  - There are still improvements to be made but will require some refactoring
+  - TODO: trim down the VP9 decoder if possible, replace JSoup, improve background parsing of posts
+- Adjusted media fade in/out animation to be faster
+- Add a *Watch* action to the Filter, will only work if only Comment is selected, this action will automatically pin any threads that match the filter
+- Improve scroll position saving (issue #8)
+- Improve how the unread line is inserted and cleared (issue #8)
+- Improve how (You)s are cleared from the bookmarks (issue #5 and #8)
+- More dialogs will now correctly use the Theme's backgroung color
+- Seeking videos will now be more responsive and less laggy by using NEAREST KEYFRAME instead of EXACT
+- Add possible mitigations for posts going into the wrong thread after the captcha flow (issue #8)
+- Fix an issue with the Dark Mode on older devices aggressively trying to apply dark mode to the captcha, causing repeat reloads
+- *4chan captcha:* fix an issue where a user could get stuck in a loop of "you mistyped the captcha" errors
+- *4chan captcha:* toasts will no longer show up for errors if the option is disabled
+- Snackbar (notifications at the bottom) button text will no longer follow theme color so it don't blend in and become invisible
+- *Dev options:* Checking database integrity will now clear duplicate posts from the DB
+- Misc small changes like wording and error messages
+
 ## 2026-03-09 – v3.2.1
 
 - **Crash on startup:** Fix an issue where the app was missing database entries for the new **comment draft** feature
