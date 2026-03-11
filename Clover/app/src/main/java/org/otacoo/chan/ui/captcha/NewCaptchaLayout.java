@@ -151,7 +151,9 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         
         // Disable system Force Dark to avoid interference with our manual dark mode implementation
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            settings.setAlgorithmicDarkeningAllowed(false);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             settings.setForceDark(WebSettings.FORCE_DARK_OFF);
         }
 
@@ -284,7 +286,6 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
      * Called from ReplyPresenter after a post attempt fails with a captcha error.
      */
     public void showAuthenticationError(String errorMessage) {
-        maybeToast(errorMessage, false);
         showOverlay(errorMessage);
     }
 
@@ -381,25 +382,27 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
                     return;
                 }
 
-                injectThemingAndHooks();
-
                 if (url.endsWith("/post")) {
                     handlePostResult();
                     return;
                 }
+
+                // Asset page is self-contained; theming/hooks are only for the native page
+                if (lastResponseWasAsset) {
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        if (getWindowToken() != null) onCaptchaLoaded();
+                    }, 500);
+                    return;
+                }
+
+                injectThemingAndHooks();
 
                 if (!url.contains("/captcha")) {
                     handleNonCaptchaRedirect(url);
                     return;
                 }
 
-                if (lastResponseWasAsset) {
-                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                        if (getWindowToken() != null) onCaptchaLoaded();
-                    }, 500);
-                } else {
-                    extractPayloadFromNativePageAndLoadAsset(url);
-                }
+                extractPayloadFromNativePageAndLoadAsset(url);
             }
 
             @Override
@@ -778,6 +781,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
             String accentFg = getContrastColor(accentCol);
 
             return html.replace("__CLOVER_JSON__", json.replace("</script>", "<\\/script>"))
+                    .replace("__COLOR_SCHEME__", isDark ? "dark" : "light")
                     .replace("__C_BG__", tc.bgHex)
                     .replace("__C_FG__", tc.fgHex)
                     .replace("__C_ACCENT__", accentHex)
@@ -824,7 +828,7 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
         boolean isError = false;
         if (msg.toLowerCase().contains("failed to load") || msg.toLowerCase().contains("error") || msg.toLowerCase().contains("fail")) {
             isError = true;
-            post(() -> maybeToast(msg, true));
+            post(() -> maybeToast(msg, false));
         }
 
         String overlayHtml;
