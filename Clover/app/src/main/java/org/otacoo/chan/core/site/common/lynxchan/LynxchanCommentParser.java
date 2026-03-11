@@ -2,6 +2,7 @@ package org.otacoo.chan.core.site.common.lynxchan;
 
 import org.otacoo.chan.core.site.parser.CommentParser;
 import org.otacoo.chan.core.site.parser.StyleRule;
+import org.otacoo.chan.utils.AndroidUtils;
 
 import java.util.regex.Pattern;
 
@@ -21,5 +22,17 @@ public class LynxchanCommentParser extends CommentParser {
                 .color(StyleRule.Color.RED)
                 .bold()
                 .relativeSize(1.25f));
+
+        // doomText: doom font + red color + bold + large text
+        rule(StyleRule.tagRule("span").cssClass("doomText")
+                .color(StyleRule.Color.RED)
+                .bold()
+                .relativeSize(1.25f)
+                .typeface(AndroidUtils.getTypeface("doom.ttf")));
+
+        // moeText wraps doomText or redText; the sparkle overlay is a CSS effect 
+        // that can't be replicated in Android spans without breaking inner span rendering.
+        // Treat it as a transparent wrapper so the inner spans still apply.
+        rule(StyleRule.tagRule("span").cssClass("moeText"));
     }
 }

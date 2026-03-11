@@ -488,6 +488,9 @@ public class LynxchanApi extends CommonSite.CommonApi {
 
         if (path == null) return null;
 
+        boolean isSpoiler = thumb != null &&
+                (thumb.equals("/spoiler.png") || thumb.endsWith("custom.spoiler"));
+
         Map<String, String> args = makeArgument("path", path, "thumb", thumb);
 
         // Derive extension: prefer explicit extension in the path, fall back to mime type.
@@ -527,14 +530,29 @@ public class LynxchanApi extends CommonSite.CommonApi {
         if (!ext.isEmpty() && displayName.toLowerCase(Locale.US).endsWith("." + ext)) {
             displayName = displayName.substring(0, displayName.length() - ext.length() - 1);
         }
+        HttpUrl thumbUrl = endpoints.thumbnailUrl(builder, false, args);
+        HttpUrl realThumbUrl = thumbUrl;
+        if (isSpoiler) {
+            // Lynxchan real thumbnails use "t_<hash>" with no extension (e.g. /.media/t_abcd1234).
+            int lastSlash = path.lastIndexOf('/');
+            String filename = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+            int dot = filename.lastIndexOf('.');
+            String basename = dot >= 0 ? filename.substring(0, dot) : filename;
+            String dir = lastSlash >= 0 ? path.substring(0, lastSlash + 1) : "";
+            String realThumbPath = dir + "t_" + basename;
+            realThumbUrl = endpoints.thumbnailUrl(builder, false,
+                    makeArgument("path", path, "thumb", realThumbPath));
+        }
         return new PostImage.Builder()
                 .originalName(originalName != null ? originalName : "image")
-                .thumbnailUrl(endpoints.thumbnailUrl(builder, false, args))
+                .thumbnailUrl(realThumbUrl)
+                .spoilerThumbnailUrl(thumbUrl)
                 .imageUrl(endpoints.imageUrl(builder, args))
                 .filename(displayName)
                 .extension(ext)
                 .imageWidth(width)
                 .imageHeight(height)
+                .spoiler(isSpoiler)
                 .size(size)
                 .build();
     }

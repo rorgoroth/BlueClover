@@ -63,6 +63,8 @@ public class StyleRule {
     private int size = 0;
     private float relativeSize = 0f;
 
+    private Typeface customTypeface = null;
+
     private PostLinkable.Type link = null;
 
     private boolean nullify = false;
@@ -145,6 +147,12 @@ public class StyleRule {
 
     public StyleRule relativeSize(float relativeSize) {
         this.relativeSize = relativeSize;
+
+        return this;
+    }
+
+    public StyleRule typeface(Typeface typeface) {
+        this.customTypeface = typeface;
 
         return this;
     }
@@ -239,6 +247,10 @@ public class StyleRule {
             spansToApply.add(new RelativeSizeSpan(relativeSize));
         }
 
+        if (customTypeface != null) {
+            spansToApply.add(new CustomTypefaceSpan(customTypeface));
+        }
+
         if (link != null) {
             PostLinkable pl = new PostLinkable(theme, result, result, link);
             post.addLinkable(pl);
@@ -296,5 +308,30 @@ public class StyleRule {
                              Post.Builder post,
                              CharSequence text,
                              Element element);
+    }
+
+    // Used for doomText and similar custom typefaces that can't be applied with a simple TypefaceSpan.
+    private static class CustomTypefaceSpan extends android.text.style.MetricAffectingSpan {
+        private final Typeface typeface;
+
+        CustomTypefaceSpan(Typeface typeface) {
+            this.typeface = typeface;
+        }
+
+        @Override
+        public void updateDrawState(android.text.TextPaint ds) {
+            apply(ds);
+        }
+
+        @Override
+        public void updateMeasureState(android.text.TextPaint paint) {
+            apply(paint);
+        }
+
+        private void apply(android.text.TextPaint paint) {
+            Typeface old = paint.getTypeface();
+            int style = old != null ? old.getStyle() : 0;
+            paint.setTypeface(Typeface.create(typeface, style));
+        }
     }
 }
