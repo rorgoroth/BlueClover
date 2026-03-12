@@ -252,7 +252,10 @@ public class MainSettingsController extends SettingsController implements Settin
         }
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("*/*");
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                "application/json", "text/plain", "application/octet-stream"
+        });
         resultHelper.getResultFromIntent(intent, (resultCode, result) -> {
             if (resultCode != Activity.RESULT_OK || result == null || result.getData() == null) {
                 return;
@@ -260,6 +263,21 @@ public class MainSettingsController extends SettingsController implements Settin
             Uri uri = result.getData();
             try {
                 ContentResolver cr = context.getContentResolver();
+
+                // Reject non-JSON files before even reading them
+                String mimeType = cr.getType(uri);
+                String uriPath = uri.getPath();
+                boolean looksLikeJson = (mimeType != null && mimeType.contains("json"))
+                        || (uriPath != null && uriPath.toLowerCase(Locale.ROOT).endsWith(".json"));
+                if (!looksLikeJson) {
+                    // Read the first byte to check for JSON
+                    try (InputStream probe = cr.openInputStream(uri)) {
+                        if (probe == null || probe.read() != '{') {
+                            throw new Exception("The selected file does not appear to be a valid Clover backup (expected a JSON file).");
+                        }
+                    }
+                }
+
                 StringBuilder sb = new StringBuilder();
                 try (InputStream is = cr.openInputStream(uri)) {
                     if (is == null) {
@@ -272,6 +290,9 @@ public class MainSettingsController extends SettingsController implements Settin
                     }
                 }
                 String backupJson = sb.toString();
+                if (!backupJson.startsWith("{")) {
+                    throw new Exception("The selected file does not appear to be a valid Clover backup (expected a JSON file).");
+                }
                 Set<String> availableKeys = SettingsBackupRestore.getAvailableRestoreKeys(backupJson);
                 showRestoreSelectionDialog(backupJson, availableKeys);
             } catch (Exception e) {
@@ -282,7 +303,7 @@ public class MainSettingsController extends SettingsController implements Settin
         });
     }
 
-    /** Show a dialog to select which settings to restore. */
+    // Show a dialog to select which settings to restore.
     private void showRestoreSelectionDialog(String backupJson, Set<String> availableKeys) {
         List<String> keyList = new ArrayList<>(availableKeys);
         List<String> displayNames = new ArrayList<>();
@@ -343,7 +364,7 @@ public class MainSettingsController extends SettingsController implements Settin
         dialog.show();
     }
     
-    /** Perform the actual restore with selected keys. */
+    // Perform the actual restore with selected keys.
     private void performRestore(String backupJson, Set<String> selectedKeys) {
         try {
             SettingsBackupRestore.importFull(databaseManager, AndroidUtils.getPreferences(), backupJson, selectedKeys);
@@ -360,7 +381,7 @@ public class MainSettingsController extends SettingsController implements Settin
         }
     }
 
-    /** Unwraps context (e.g. ContextWrapper) to find StartActivity so restore can trigger restart. */
+    // Unwraps context (e.g. ContextWrapper) to find StartActivity so restore can trigger restart.
     private static StartActivity getStartActivity(Context context) {
         while (context != null) {
             if (context instanceof StartActivity) {

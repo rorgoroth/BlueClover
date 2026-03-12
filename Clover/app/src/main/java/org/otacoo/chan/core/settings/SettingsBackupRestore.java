@@ -52,6 +52,10 @@ public final class SettingsBackupRestore {
     private static final int BACKUP_VERSION_SITES = 3;
     private static final int BACKUP_VERSION_FILTERS = 4;
 
+    // Backup file marker
+    private static final String KEY_APP_MARKER = "_app";
+    private static final String APP_MARKER_VALUE = "clover";
+
     private static final String KEY_PREFERENCES = "preferences";
     private static final String KEY_SITES = "sites";
     private static final String KEY_PINS = "pins";
@@ -93,6 +97,17 @@ public final class SettingsBackupRestore {
     // Extract available top-level keys to selectively restore from the backup JSON
     public static Set<String> getAvailableRestoreKeys(String json) throws Exception {
         JSONObject obj = new JSONObject(json);
+        String marker = obj.optString(KEY_APP_MARKER, null);
+        if (!APP_MARKER_VALUE.equals(marker)) {
+            // TODO: remove this fallback once old backups are no longer in circulation.
+            boolean isLegacy = obj.has(KEY_VERSION)
+                    && obj.has(KEY_PREFERENCES)
+                    && obj.optJSONObject(KEY_PREFERENCES) != null
+                    && obj.optJSONObject(KEY_PREFERENCES).has("preference_previous_version");
+            if (!isLegacy) {
+                throw new Exception("The selected file is not a Clover backup.");
+            }
+        }
         Set<String> availableKeys = new HashSet<>();
         int version = obj.optInt(KEY_VERSION, BACKUP_VERSION_1);
         
@@ -161,6 +176,7 @@ public final class SettingsBackupRestore {
         List<Filter> filters = databaseManager.runTask(databaseManager.getDatabaseFilterManager().getFilters());
 
         JSONObject out = new JSONObject();
+        out.put(KEY_APP_MARKER, APP_MARKER_VALUE);
         out.put(KEY_VERSION, BACKUP_VERSION_FILTERS);
 
         JSONObject prefsObj = new JSONObject();
