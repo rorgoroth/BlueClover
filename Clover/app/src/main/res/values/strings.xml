@@ -155,7 +155,7 @@ Re-enable this permission in the app settings if you permanently disabled it."</
     <string name="thread_boards_search_hint">Search</string>
     <string name="thread_load_failed_ssl">HTTPS error</string>
     <string name="thread_load_failed_network">Network error</string>
-    <string name="thread_load_failed_parsing">API parse error</string>
+    <string name="thread_load_failed_parsing">No connection</string>
     <string name="thread_load_failed_server">Server error</string>
     <string name="thread_load_failed_not_found">404 not found</string>
     <string name="thread_refresh_bar_inactive">Tap to refresh</string>
@@ -333,7 +333,9 @@ If any ohter filters are enabled for it, it will not work.
     <string name="reply_no_preview">No preview</string>
     <string name="reply_submit">Submit</string>
     <string name="reply_error">Error posting</string>
+    <string name="reply_error_empty">Nothing to post (add a comment or attach a file)</string>
     <string name="reply_error_message">Error posting: %s</string>
+    <string name="reply_attach_from_url">Long-press to attach from URL</string>
     <string name="reply_success">Post successful</string>
     <string name="reply_success_recover">Recover</string>
     <string name="reply_captcha_text">Type the text</string>

@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     android:animateLayoutChanges="true"
     android:baselineAligned="false"
     android:minHeight="124dp"
-    android:orientation="horizontal"
     tools:ignore="ContentDescription,RtlHardcoded,RtlSymmetry">
 
     <LinearLayout
@@ -30,11 +29,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         android:layout_height="wrap_content"
         android:animateLayoutChanges="true"
         android:baselineAligned="false"
-        android:minHeight="124dp"
         android:orientation="horizontal"
         tools:ignore="ContentDescription,RtlHardcoded,RtlSymmetry">
 
         <LinearLayout
+            android:id="@+id/reply_content"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -119,8 +118,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                     android:gravity="top"
                     android:imeActionLabel="@string/reply_submit"
                     android:inputType="textMultiLine|textCapSentences|textAutoCorrect"
-                    android:maxLines="6"
-                    android:minHeight="107dp"
+                    android:maxLines="10"
+                    android:minLines="6"
                     android:textSize="16sp" />
 
                 <TextView
@@ -138,7 +137,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
             <LinearLayout
                 android:id="@+id/comment_buttons"
-                style="?android:attr/buttonBarStyle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -146,7 +144,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
                 <Button
                     android:id="@+id/comment_quote"
-                    style="?android:attr/buttonBarButtonStyle"
+                    style="@style/Widget.AppCompat.Button.Borderless"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_margin="0dp"
@@ -158,7 +156,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
                 <Button
                     android:id="@+id/comment_spoiler"
-                    style="?android:attr/buttonBarButtonStyle"
+                    style="@style/Widget.AppCompat.Button.Borderless"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_margin="0dp"
@@ -170,7 +168,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
                 <Button
                     android:id="@+id/comment_code"
-                    style="?android:attr/buttonBarButtonStyle"
+                    style="@style/Widget.AppCompat.Button.Borderless"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_margin="0dp"
@@ -182,7 +180,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
                 <Button
                     android:id="@+id/comment_math"
-                    style="?android:attr/buttonBarButtonStyle"
+                    style="@style/Widget.AppCompat.Button.Borderless"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_margin="0dp"
@@ -194,7 +192,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
                 <Button
                     android:id="@+id/comment_eqn"
-                    style="?android:attr/buttonBarButtonStyle"
+                    style="@style/Widget.AppCompat.Button.Borderless"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_margin="0dp"
@@ -212,6 +210,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                 android:layout_height="wrap_content"
                 android:text="@string/reply_spoiler_image"
                 android:textSize="14sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/file_attachments_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
                 android:visibility="gone" />
 
             <HorizontalScrollView
@@ -269,28 +274,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
         <LinearLayout
             android:id="@+id/buttons"
-            android:layout_width="52dp"
+            android:layout_width="50dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="4dp">
 
             <ImageView
                 android:id="@+id/more"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
                 android:padding="10dp" />
 
             <ImageView
                 android:id="@+id/attach"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:padding="6dp" />
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:padding="10dp"
+                android:tooltipText="@string/reply_attach_from_url" />
 
             <ImageView
                 android:id="@+id/submit"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:padding="6dp" />
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:padding="10dp" />
 
         </LinearLayout>
 
