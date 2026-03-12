@@ -1,0 +1,9 @@
+{
+  "name": "clover",
+  "version": "3.3.2",
+  "description": "Clover Android app release management",
+  "private": true,
+  "scripts": {
+    "version": "node update_script.js && git add CHANGES.md Clover/app/build.gradle docs/update_api.json"
+  }
+}
