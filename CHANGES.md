@@ -1,3 +1,10 @@
+## 2026-03-12 – v3.3.2
+
+- Refactor and simplify some of the 4chan captcha code
+  - Error messages should be correctly shown (e.g. "Temporarily banned from posting from this IP") instead of redirecting instantly
+- Improve the 8chan flow
+  - POWBlock should be solved automatically in the background when it detects X-PoW-Status: required header (Acid)
+
 ## 2026-03-11 – v3.3.1
 
 - Improve the flow for 8chan on a fresh app start
