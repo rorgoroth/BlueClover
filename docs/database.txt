@@ -86,3 +86,23 @@ Changes in version 25:
 CREATE INDEX board_site_idx ON board(site);
 CREATE INDEX board_saved_idx ON board(saved);
 CREATE INDEX board_value_idx ON board(value);
+
+
+Changes in version 26:
+UPDATE site SET userSettings='{}'  (resets all site user settings; key was never saved properly)
+
+
+Changes in version 27:
+ALTER TABLE board ADD COLUMN boardFlags BLOB NOT NULL default <serialized empty HashMap>;
+
+
+Changes in version 28:
+ALTER TABLE filter ADD COLUMN "order" INTEGER default 0;
+
+
+Changes in version 29:
+ALTER TABLE loadable ADD COLUMN draftName VARCHAR;
+ALTER TABLE loadable ADD COLUMN draftSubject VARCHAR;
+ALTER TABLE loadable ADD COLUMN draftComment VARCHAR;
+ALTER TABLE loadable ADD COLUMN draftOptions VARCHAR;
+ALTER TABLE loadable ADD COLUMN draftFlag VARCHAR;
