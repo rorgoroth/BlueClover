@@ -646,12 +646,15 @@ public class ThreadPresenter implements
         } else if (linkable.type == PostLinkable.Type.BOARD) {
             PostLinkable.BoardLink boardLink = (PostLinkable.BoardLink) linkable.value;
             Board board = loadable.site.board(boardLink.board);
-            
+            if (board == null) {
+                board = Board.fromSiteNameCode(loadable.site, boardLink.board, boardLink.board);
+            }
+
             String scheme = boardLink.originalScheme;
             String host = boardLink.originalHost;
             if (TextUtils.isEmpty(scheme)) scheme = "https";
             if (TextUtils.isEmpty(host)) host = "8chan.moe";
-            
+
             if (board != null) {
                 // Navigate to the board catalog within the app
                 Loadable catalogLoadable = databaseManager.getDatabaseLoadableManager()

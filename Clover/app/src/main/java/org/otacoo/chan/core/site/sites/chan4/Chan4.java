@@ -621,8 +621,8 @@ public class Chan4 extends SiteBase {
                 // yes, we support image posting.
                 return true;
             case POSTING_SPOILER:
-                // depends if the board supports it.
-                return board.spoilers;
+                // Board-level flag, or thread-level custom_spoiler (stored as customSpoilers >= 0).
+                return board.spoilers || board.customSpoilers >= 0;
             case ARCHIVE:
                 return board.archive;
             default:

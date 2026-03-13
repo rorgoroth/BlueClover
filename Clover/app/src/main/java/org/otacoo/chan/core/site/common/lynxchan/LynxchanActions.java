@@ -152,9 +152,20 @@ public class LynxchanActions extends CommonSite.CommonActions {
             for (Reply.FileAttachment attachment : reply.fileAttachments) {
                 call.fileParameter("files", attachment.fileName, attachment.file);
             }
+            // Spoiler: send if any attachment is marked as spoiler
+            boolean anySpoiler = false;
+            for (Reply.FileAttachment attachment : reply.fileAttachments) {
+                if (attachment.spoiler) { anySpoiler = true; break; }
+            }
+            if (anySpoiler) {
+                call.parameter("spoiler", "on");
+            }
         } else if (reply.file != null) {
             // Legacy single file support
             call.fileParameter("files", reply.fileName, reply.file);
+            if (reply.spoilerImage) {
+                call.parameter("spoiler", "on");
+            }
         }
 
         // Lynxchan captcha: challengeId goes in captchaId, the typed answer in captchaAnswer.
