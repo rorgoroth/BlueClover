@@ -9,6 +9,8 @@
  *
  * versionCode format:  XXYYZZ  (no zero-padding of major)
  *   e.g. v3.0.22 → 30022,  v3.1.5 → 30105,  v10.2.3 → 100203
+ * 
+ * Set "npm config set git-tag-version false" if you don't want to git commit.
  */
 
 const fs   = require('fs');
@@ -38,12 +40,12 @@ const updateJson  = path.join(root, 'docs', 'update_api.json');
     let src = fs.readFileSync(buildGradle, 'utf8');
 
     src = src.replace(
-        /versionName\s+"v\d+\.\d+\.\d+"/,
-        `versionName "${versionName}"`
+        /versionName\s*=\s*"v\d+\.\d+\.\d+"/,
+        `versionName = "${versionName}"`
     );
     src = src.replace(
-        /versionCode\s+\d+/,
-        `versionCode ${versionCode}`
+        /versionCode\s*=\s*\d+/,
+        `versionCode = ${versionCode}`
     );
 
     fs.writeFileSync(buildGradle, src, 'utf8');
