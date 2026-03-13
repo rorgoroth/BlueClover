@@ -41,6 +41,7 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled = true
     }
 
     configurations.configureEach {
@@ -145,6 +146,8 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+
     implementation fileTree(dir: 'libs', include: ['*.aar', '*.jar'])
     //noinspection GradleDependency
     implementation 'androidx.appcompat:appcompat:1.5.1'
@@ -166,8 +169,8 @@ dependencies {
     implementation 'androidx.drawerlayout:drawerlayout:1.1.0'
     implementation 'androidx.viewpager:viewpager:1.0.0'
 
-    implementation 'androidx.media3:media3-exoplayer:1.4.1'
-    implementation 'androidx.media3:media3-ui:1.4.1'
+    implementation 'androidx.media3:media3-exoplayer:1.9.2'
+    implementation 'androidx.media3:media3-ui:1.9.2'
 
     compileOnly 'org.checkerframework:checker-qual:3.54.0'
 
