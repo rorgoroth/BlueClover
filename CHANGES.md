@@ -1,23 +1,3 @@
-## 2026-03-13 – v3.3.4
-
->[!WARNING]
->About `Posting from your IP range has been temporarily blocked due to abuse`.
->
->4chan seems to currently be banning certain mobile fingerprints (as per Anon on /g/, unconfirmed).
->I do not know if the recent Clover changes to the captcha are at the origin of this ban due to the way the captcha was constructed.
->The changes in this version should prevent this going forward. My apologies.\
->If you get this message and still want to post for now the best solution is to verify your email.
->Keep in mind when you receive the email that it needs to be opened WITHIN Clover (use the option *Enter verification token*), not your regular browser.\
->Copying your *4chan_pass* cookie from another PC or device should work as well.
-
-- 4chan captcha: Clover will no longer set the headers when asking for a captcha, will use devices headers
-- Update ExoPlayer to the latest version
-- Update VP9 decoder and the way decoders are selected for playback in Clover
-  - Set VP9 MIME types as unsupported → this forces device to fallback to hardware decoder → if HW decoder errors out, we use our VP9 decoder
-- Fix an issue with videos having a small delay before they became available to play
-- Reduced minSdk to 24 (Android 6.0 Marshmallow) so Anon can use Clover on his old phone
-- Cleaned up gradle build and added some mitigations for using Clover on older (and newer) devices
- 
 ## 2026-03-12 – v3.3.3
 
 - Trimmed the VP9 decoder by ~1.3MB, Clover APK now half the previous size
