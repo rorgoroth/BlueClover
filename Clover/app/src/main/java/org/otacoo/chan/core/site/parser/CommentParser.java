@@ -202,8 +202,9 @@ public class CommentParser {
                 if (spanContent.length >= 3) {
                     try {
                         int postNo = Integer.parseInt(spanContent[2]);
-                        handlerLink.type = PostLinkable.Type.DEAD;
-                        handlerLink.value = new PostLinkable.ThreadLink(board, -1, postNo);
+                        // Cross-board numeric link (e.g. >>>/wsg/123456)
+                        handlerLink.type = PostLinkable.Type.THREAD;
+                        handlerLink.value = new PostLinkable.ThreadLink(board, postNo, postNo);
                     } catch (NumberFormatException e) {
                         // Not a number, treat as a catalog search term for 4chan compatibility
                         handlerLink.type = PostLinkable.Type.BOARD;
