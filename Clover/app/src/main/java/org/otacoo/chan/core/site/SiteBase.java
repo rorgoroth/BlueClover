@@ -83,8 +83,16 @@ public abstract class SiteBase implements Site {
         //            boardManager.updateAvailableBoardsForSite(site, boards.boards));
         //}
 
+        // Refresh available boards in the background at low priority.
+        // Only fires if the user has at least one board from this site already added,
+        // so sites the user hasn't set up (e.g. 8chan when only 4chan is used) are skipped.
         if (boardsType().canList && !boardManager.getSiteSavedBoards(this).isEmpty()) {
-           actions().boards(boards -> boardManager.updateAvailableBoardsForSite(this, boards.boards));
+            Thread t = new Thread(() ->
+                    actions().boards(boards -> boardManager.updateAvailableBoardsForSite(this, boards.boards)));
+            t.setName("board-refresh-" + name());
+            t.setDaemon(true);
+            t.setPriority(Thread.MIN_PRIORITY);
+            t.start();
         }
 
         Time.endTiming("initialized " + name(), start);

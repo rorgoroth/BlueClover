@@ -26,7 +26,6 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
-import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 
 import org.otacoo.chan.core.manager.ReplyManager;
@@ -89,25 +88,12 @@ public class ImagePickDelegate implements Runnable {
             this.allowMultiple = allowMultiple;
             this.maxFileCount = maxFileCount;
 
-            Intent intent = null;
-            if (allowMultiple && maxFileCount > 1) {
-                Intent pickImagesIntent = new Intent(MediaStore.ACTION_PICK_IMAGES);
-                pickImagesIntent.putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, maxFileCount);
-                if (pickImagesIntent.resolveActivity(activity.getPackageManager()) != null) {
-                    intent = pickImagesIntent;
-                }
-            }
+            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
 
-            if (intent == null) {
-                intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("*/*");
-
-                if (allowMultiple) {
-                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                    // Add modern Android limit if supported by picker
-                    intent.putExtra("android.intent.extra.ALLOW_MULTIPLE_LIMIT", maxFileCount);
-                }
+            if (allowMultiple) {
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
             }
 
             if (intent.resolveActivity(activity.getPackageManager()) != null) {

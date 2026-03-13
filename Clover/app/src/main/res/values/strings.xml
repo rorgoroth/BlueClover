@@ -344,6 +344,9 @@ If any ohter filters are enabled for it, it will not work.
     <string name="reply_comment_button_code">[c]</string>
     <string name="reply_comment_button_math">[mt]</string>
     <string name="reply_comment_button_eqn">[eq]</string>
+    <string name="reply_comment_button_redtext" translatable="false">[SRZ]</string>
+    <string name="reply_comment_button_italic" translatable="false">[I]</string>
+    <string name="reply_comment_button_bold" translatable="false">[B]</string>
 
     <string name="delete_confirm">Delete your post?</string>
     <string name="delete_wait">Deleting post&#8230;</string>

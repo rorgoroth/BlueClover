@@ -79,6 +79,52 @@ public class Chan8 extends CommonSite {
         preferredDomain = new OptionsSetting<>(p, "preference_chan8_domain", PreferredDomain.class, PreferredDomain.AUTO);
         applyDomainPreference(preferredDomain.get());
         preferredDomain.addCallback((setting, value) -> applyDomainPreference(value));
+        restorePowCookies();
+    }
+
+    /**
+     * Reads the POW session cookies that {@link org.otacoo.chan.core.di.Chan8PowInterceptor}
+     * If the token has expired the interceptor will clear it and re-solve automatically.
+     */
+    private void restorePowCookies() {
+        java.net.CookieManager cm = org.otacoo.chan.core.di.NetModule.getSharedCookieManager();
+        if (cm == null) return;
+
+        java.util.List<String[]> toRestore = new java.util.ArrayList<>();
+
+        // POW_TOKEN and POW_ID are persisted under fixed keys.
+        for (String name : new String[]{"POW_TOKEN", "POW_ID"}) {
+            String value = settingsProvider.getString(name, null);
+            if (value != null && !value.isEmpty()) {
+                toRestore.add(new String[]{name, value});
+            }
+        }
+
+        // TOS cookie: stored under its actual server-assigned name (e.g. "TOS20250418").
+        // The interceptor also stores the name itself under "_TOS_KEY" so we can restore properly.
+        String tosKey = settingsProvider.getString("_TOS_KEY", null);
+        if (tosKey != null && !tosKey.isEmpty()) {
+            String tosValue = settingsProvider.getString(tosKey, null);
+            if (tosValue != null && !tosValue.isEmpty()) {
+                toRestore.add(new String[]{tosKey, tosValue});
+            }
+        }
+
+        if (toRestore.isEmpty()) return;
+
+        String[] domains = {"https://8chan.moe/", "https://8chan.st/", "https://8chan.cc/"};
+        for (String[] entry : toRestore) {
+            for (String domain : domains) {
+                try {
+                    java.net.URI uri = new java.net.URI(domain);
+                    java.net.HttpCookie hc = new java.net.HttpCookie(entry[0], entry[1]);
+                    hc.setDomain(uri.getHost());
+                    hc.setPath("/");
+                    cm.getCookieStore().add(uri, hc);
+                } catch (Exception ignored) {}
+            }
+        }
+        Logger.d("Chan8", "Restored POW session cookies from persistent settings");
     }
 
     private void applyDomainPreference(PreferredDomain pref) {
@@ -133,6 +179,12 @@ public class Chan8 extends CommonSite {
     };
 
     @Override
+    public org.otacoo.chan.core.site.FileUploadLimits fileUploadLimits() {
+        // 8chan supports up to 5 files per post, 32 MB each.
+        return new org.otacoo.chan.core.site.FileUploadLimits(32 * 1024 * 1024, 32 * 1024 * 1024, -1, 5);
+    }
+
+    @Override
     public void setup() {
         setName("8chan");
         setIcon(SiteIcon.fromAssets("icons/8chan.webp"));
@@ -152,6 +204,15 @@ public class Chan8 extends CommonSite {
             @Override
             public boolean feature(Feature feature) {
                 return feature == Feature.POSTING || feature == Feature.LOGIN;
+            }
+
+            @Override
+            public boolean boardFeature(BoardFeature boardFeature, Board board) {
+                // 8chan (Lynxchan) supports file spoilers and text formatting on all boards.
+                return boardFeature == BoardFeature.POSTING_SPOILER
+                        || boardFeature == BoardFeature.FORMATTING_REDTEXT
+                        || boardFeature == BoardFeature.FORMATTING_ITALIC
+                        || boardFeature == BoardFeature.FORMATTING_BOLD;
             }
         });
     }

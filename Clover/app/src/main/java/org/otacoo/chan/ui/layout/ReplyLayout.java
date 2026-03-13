@@ -146,6 +146,9 @@ public class ReplyLayout extends LoadView implements
     private Button commentCodeButton;
     private Button commentMathButton;
     private Button commentEqnButton;
+    private Button commentRedtextButton;
+    private Button commentItalicButton;
+    private Button commentBoldButton;
     private SelectionListeningEditText comment;
     private TextView commentCounter;
     private CheckBox spoiler;
@@ -232,6 +235,9 @@ public class ReplyLayout extends LoadView implements
         commentCodeButton = replyInputLayout.findViewById(R.id.comment_code);
         commentMathButton = replyInputLayout.findViewById(R.id.comment_math);
         commentEqnButton = replyInputLayout.findViewById(R.id.comment_eqn);
+        commentRedtextButton = replyInputLayout.findViewById(R.id.comment_redtext);
+        commentItalicButton = replyInputLayout.findViewById(R.id.comment_italic);
+        commentBoldButton = replyInputLayout.findViewById(R.id.comment_bold);
         comment = replyInputLayout.findViewById(R.id.comment);
         commentCounter = replyInputLayout.findViewById(R.id.comment_counter);
         spoiler = replyInputLayout.findViewById(R.id.spoiler);
@@ -288,7 +294,7 @@ public class ReplyLayout extends LoadView implements
             FloatingMenuItem selected = null;
             for (String key : sorted) {
                 FloatingMenuItem flagItem = new FloatingMenuItem(key, boardFlags.get(key));
-                if (key.contentEquals(flag.getText())) {
+                if (key.contentEquals((CharSequence) flag.getTag())) {
                     selected = flagItem;
                 }
                 items.add(flagItem);
@@ -325,7 +331,15 @@ public class ReplyLayout extends LoadView implements
             menu.setCallback(new FloatingMenu.FloatingMenuCallback() {
                 @Override
                 public void onFloatingMenuItemClicked(FloatingMenu menu, FloatingMenuItem item) {
-                    flag.setText((String) item.getId());
+                    String selectedKey = (String) item.getId(); // null for "No flag"
+                    flag.setTag(selectedKey != null ? selectedKey : "");
+                    if (selectedKey != null) {
+                        String flagName = boardFlags.get(selectedKey);
+                        String display = flagName != null ? flagName : selectedKey;
+                        flag.setText(display.substring(0, Math.min(3, display.length())).toUpperCase());
+                    } else {
+                        flag.setText("");
+                    }
                 }
 
                 @Override
@@ -339,6 +353,9 @@ public class ReplyLayout extends LoadView implements
         commentCodeButton.setOnClickListener(this);
         commentMathButton.setOnClickListener(this);
         commentEqnButton.setOnClickListener(this);
+        commentRedtextButton.setOnClickListener(this);
+        commentItalicButton.setOnClickListener(this);
+        commentBoldButton.setOnClickListener(this);
 
         comment.addTextChangedListener(this);
         comment.setSelectionChangedListener(this);
@@ -435,6 +452,12 @@ public class ReplyLayout extends LoadView implements
             presenter.commentMathClicked();
         } else if (v == commentEqnButton) {
             presenter.commentEqnClicked();
+        } else if (v == commentRedtextButton) {
+            presenter.commentRedtextClicked();
+        } else if (v == commentItalicButton) {
+            presenter.commentItalicClicked();
+        } else if (v == commentBoldButton) {
+            presenter.commentBoldClicked();
         }
     }
 
@@ -699,7 +722,16 @@ public class ReplyLayout extends LoadView implements
     public void loadDraftIntoViews(Reply draft) {
         name.setText(draft.name);
         subject.setText(draft.subject);
-        flag.setText(draft.flag);
+        flag.setTag(draft.flag);
+        // Show an abbreviated name for display; fall back gracefully for saved keys.
+        if (!draft.flag.isEmpty()) {
+            Map<String, String> boardFlags = presenter.getBoardFlags();
+            String flagName = boardFlags.get(draft.flag);
+            String display = flagName != null ? flagName : draft.flag;
+            flag.setText(display.substring(0, Math.min(3, display.length())).toUpperCase());
+        } else {
+            flag.setText("");
+        }
         options.setText(draft.options);
         blockSelectionChange = true;
         comment.setText(draft.comment);
@@ -713,7 +745,7 @@ public class ReplyLayout extends LoadView implements
     public void loadViewsIntoDraft(Reply draft) {
         draft.name = name.getText().toString();
         draft.subject = subject.getText().toString();
-        draft.flag = flag.getText().toString();
+        draft.flag = flag.getTag() instanceof String ? (String) flag.getTag() : flag.getText().toString();
         draft.options = options.getText().toString();
         draft.comment = comment.getText().toString();
         draft.selectionStart = comment.getSelectionStart();
@@ -830,6 +862,21 @@ public class ReplyLayout extends LoadView implements
     @Override
     public void openCommentEqnButton(boolean open) {
         commentEqnButton.setVisibility(open ? View.VISIBLE : View.GONE);
+    }
+
+    @Override
+    public void openCommentRedtextButton(boolean open) {
+        commentRedtextButton.setVisibility(open ? View.VISIBLE : View.GONE);
+    }
+
+    @Override
+    public void openCommentItalicButton(boolean open) {
+        commentItalicButton.setVisibility(open ? View.VISIBLE : View.GONE);
+    }
+
+    @Override
+    public void openCommentBoldButton(boolean open) {
+        commentBoldButton.setVisibility(open ? View.VISIBLE : View.GONE);
     }
 
     @Override

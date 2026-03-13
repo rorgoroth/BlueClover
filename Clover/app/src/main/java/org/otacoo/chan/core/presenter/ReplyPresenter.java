@@ -36,6 +36,7 @@ import org.otacoo.chan.core.model.orm.Board;
 import org.otacoo.chan.core.model.orm.Loadable;
 import org.otacoo.chan.core.model.orm.SavedReply;
 import org.otacoo.chan.core.settings.ChanSettings;
+import org.otacoo.chan.core.site.Site;
 import org.otacoo.chan.core.site.SiteActions;
 import org.otacoo.chan.core.site.SiteAuthentication;
 import org.otacoo.chan.core.site.http.HttpCall;
@@ -234,17 +235,20 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
             if (isSingleFileMode()) {
                 callback.openFileName(moreOpen);
             }
-            callback.openSpoiler(board.spoilers && moreOpen, false);
+            callback.openSpoiler(loadable.getSite().boardFeature(Site.BoardFeature.POSTING_SPOILER, board) && moreOpen && isSingleFileMode(), false);
         }
     }
 
     private void updateButtons() {
         boolean alwaysShow = ChanSettings.alwaysShowReplyTags.get();
         callback.openCommentQuoteButton(moreOpen || alwaysShow);
-        callback.openCommentSpoilerButton(board.spoilers && (moreOpen || alwaysShow));
+        callback.openCommentSpoilerButton(loadable.getSite().boardFeature(Site.BoardFeature.POSTING_SPOILER, board) && (moreOpen || alwaysShow));
         callback.openCommentCodeButton(board.codeTags && (moreOpen || alwaysShow));
         callback.openCommentMathButton(board.mathTags && (moreOpen || alwaysShow));
         callback.openCommentEqnButton(board.mathTags && (moreOpen || alwaysShow));
+        callback.openCommentRedtextButton(loadable.getSite().boardFeature(Site.BoardFeature.FORMATTING_REDTEXT, board) && (moreOpen || alwaysShow));
+        callback.openCommentItalicButton(loadable.getSite().boardFeature(Site.BoardFeature.FORMATTING_ITALIC, board) && (moreOpen || alwaysShow));
+        callback.openCommentBoldButton(loadable.getSite().boardFeature(Site.BoardFeature.FORMATTING_BOLD, board) && (moreOpen || alwaysShow));
     }
 
     public boolean isExpanded() {
@@ -553,6 +557,18 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
 
     public void commentEqnClicked() {
         commentInsert("[eqn]", "[/eqn]");
+    }
+
+    public void commentRedtextClicked() {
+        commentInsert("==", "==");
+    }
+
+    public void commentItalicClicked() {
+        commentInsert("''", "''");
+    }
+
+    public void commentBoldClicked() {
+        commentInsert("'''", "'''");
     }
 
     public void quote(Post post, boolean withText) {
@@ -880,6 +896,12 @@ public class ReplyPresenter implements AuthenticationLayoutCallback, ImagePickDe
         void openCommentMathButton(boolean open);
 
         void openCommentEqnButton(boolean open);
+
+        void openCommentRedtextButton(boolean open);
+
+        void openCommentItalicButton(boolean open);
+
+        void openCommentBoldButton(boolean open);
 
         void openFileName(boolean open);
 

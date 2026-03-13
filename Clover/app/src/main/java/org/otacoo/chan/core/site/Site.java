@@ -84,6 +84,21 @@ public interface Site {
          * This board support loading the archive, a list of threads that are locked after expiring.
          */
         ARCHIVE,
+
+        /**
+         * This board supports Lynxchan ==redtext== formatting.
+         */
+        FORMATTING_REDTEXT,
+
+        /**
+         * This board supports Lynxchan ''italic'' formatting.
+         */
+        FORMATTING_ITALIC,
+
+        /**
+         * This board supports Lynxchan '''bold''' formatting.
+         */
+        FORMATTING_BOLD,
     }
 
     /**
