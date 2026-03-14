@@ -39,15 +39,27 @@ import org.otacoo.chan.core.settings.Setting;
 public class IntegerSettingView extends SettingView implements View.OnClickListener {
     private final Setting<Integer> setting;
     private final String dialogTitle;
+    private final int minValue;
+    private final int maxValue;
 
     public IntegerSettingView(SettingsController settingsController, Setting<Integer> setting, int name, int dialogTitle) {
-        this(settingsController, setting, getString(name), getString(dialogTitle));
+        this(settingsController, setting, getString(name), getString(dialogTitle), Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     public IntegerSettingView(SettingsController settingsController, Setting<Integer> setting, String name, String dialogTitle) {
+        this(settingsController, setting, name, dialogTitle, Integer.MIN_VALUE, Integer.MAX_VALUE);
+    }
+
+    public IntegerSettingView(SettingsController settingsController, Setting<Integer> setting, int name, int dialogTitle, int minValue, int maxValue) {
+        this(settingsController, setting, getString(name), getString(dialogTitle), minValue, maxValue);
+    }
+
+    public IntegerSettingView(SettingsController settingsController, Setting<Integer> setting, String name, String dialogTitle, int minValue, int maxValue) {
         super(settingsController, name);
         this.setting = setting;
         this.dialogTitle = dialogTitle;
+        this.minValue = minValue;
+        this.maxValue = maxValue;
     }
 
     @Override
@@ -80,7 +92,9 @@ public class IntegerSettingView extends SettingView implements View.OnClickListe
                     @Override
                     public void onClick(DialogInterface d, int which) {
                         try {
-                            setting.set(Integer.parseInt(editText.getText().toString()));
+                            int value = Integer.parseInt(editText.getText().toString());
+                            value = Math.max(minValue, Math.min(maxValue, value));
+                            setting.set(value);
                         } catch (Exception e) {
                             setting.set(setting.getDefault());
                         }

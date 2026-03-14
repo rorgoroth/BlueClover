@@ -66,6 +66,9 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.ui.PlayerView;
 
 import org.otacoo.chan.R;
@@ -81,7 +84,6 @@ import org.otacoo.chan.utils.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -125,7 +127,7 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
     private PlayerView exoPlayerView;
     private View playerRoot;
     private boolean videoError = false;
-    private boolean vp9FallbackAttempted = false;
+    private int vp9FallbackStage = 0; // 0=initial, 1=libvpx retry, 2=c2.android retry
     private ExoPlayer exoPlayer;
 
     private View playerControllerContainer;
@@ -567,154 +569,85 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
         setupPlayerController();
         playView.setVisibility(View.GONE);
         playerRoot = root;
-        vp9FallbackAttempted = false;
+        vp9FallbackStage = 0;
         LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
         addView(root, 0, lp);
 
-        // This empty mimeType list makes MediaCodecVideoRenderer report FORMAT_UNSUPPORTED_SUBTYPE, so 
-        // that track selection falls through to the LibvpxVideoRenderer added by EXTENSION_RENDERER_MODE_ON.
-        MediaCodecSelector vp9ToLibvpxSelector = (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
-            if (MimeTypes.VIDEO_VP9.equals(mimeType)) {
-                return Collections.emptyList();
-            }
-            return MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
-        };
+        isMuted = ChanSettings.videoDefaultMuted.get();
+        startExoPlayer(file);
+        callback.onVideoLoaded(this);
+    }
+
+    // Builds and starts an ExoPlayer instance attached to the already-inflated exoPlayerView.
+    // For DEFAULT: stage 0 = hardware first, stage 1 = libvpx preferred, stage 2 = c2.android only.
+    // For PREFER:  stage 0 = libvpx preferred, stage 1 = c2.android only.
+    // For OFF:     no fallback, hardware only.
+    private void startExoPlayer(File file) {
+        // Filters VP9 to software Codec2 decoders that support all profiles including 10-bit.
+        // Includes c2.android.* (AOSP) and c2.qti.vp9.decoder (Qualcomm software Codec2).
+        // Excludes OEM hardware decoders that may not support Profile 2.
+        final MediaCodecSelector c2AndroidVp9Selector =
+                (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+                    if (MimeTypes.VIDEO_VP9.equals(mimeType)) {
+                        List<MediaCodecInfo> all = MediaCodecSelector.DEFAULT.getDecoderInfos(
+                                mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+                        List<MediaCodecInfo> filtered = new ArrayList<>();
+                        for (MediaCodecInfo info : all) {
+                            if (info.name.startsWith("c2.android.")
+                                    || info.name.equals("c2.qti.vp9.decoder")) filtered.add(info);
+                        }
+                        return filtered;
+                    }
+                    return MediaCodecSelector.DEFAULT.getDecoderInfos(
+                            mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+                };
+
+        ChanSettings.Vp9ExtensionMode extMode = ChanSettings.vp9ExtensionMode.get();
+        int rendererMode;
+        MediaCodecSelector selector = MediaCodecSelector.DEFAULT;
+
+        if (extMode == ChanSettings.Vp9ExtensionMode.OFF) {
+            // OFF: hardware only, libvpx disabled, no fallback.
+            rendererMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF;
+        } else if ((extMode == ChanSettings.Vp9ExtensionMode.DEFAULT && vp9FallbackStage >= 2)
+                || (extMode == ChanSettings.Vp9ExtensionMode.PREFER  && vp9FallbackStage >= 1)) {
+            // Final fallback: c2.android.* or c2.qti.vp9.decoder (all VP9 profiles, no OEM hardware)
+            rendererMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF;
+            selector = c2AndroidVp9Selector;
+        } else if (extMode == ChanSettings.Vp9ExtensionMode.PREFER || vp9FallbackStage >= 1) {
+            // PREFER primary, or DEFAULT first retry: prefer libvpx extension over hardware.
+            rendererMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER;
+        } else {
+            // DEFAULT stage 0: hardware first, libvpx available as extension fallback.
+            rendererMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON;
+        }
 
         DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(getContext())
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-                .setMediaCodecSelector(vp9ToLibvpxSelector)
+                .setExtensionRendererMode(rendererMode)
+                .setMediaCodecSelector(selector)
                 .setEnableDecoderFallback(true);
 
+        DefaultExtractorsFactory extractorsFactory = new DefaultExtractorsFactory();
+        if (ChanSettings.vp9DisableSeekForCues.get()) {
+            extractorsFactory.setMatroskaExtractorFlags(MatroskaExtractor.FLAG_DISABLE_SEEK_FOR_CUES);
+        }
+        DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(getContext(), extractorsFactory);
+
+        int bufferForPlayback = Math.max(100, Math.min(10000, ChanSettings.videoBufferForPlayback.get()));
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                        50000,   // minBuffer: keep 50s buffered before slowing down fetching
-                        120000,  // maxBuffer: pre-fetch up to 120s ahead
-                        5000,    // bufferForPlayback
-                        10000    // bufferForPlaybackAfterRebuffer
-                )
+                        50000,
+                        120000,
+                        bufferForPlayback,
+                        10000)
                 .build();
 
         exoPlayer = new ExoPlayer.Builder(new NoMusicServiceCommandContext(getContext()), renderersFactory)
+                .setMediaSourceFactory(mediaSourceFactory)
                 .setLoadControl(loadControl)
                 .build();
 
         exoPlayerView.setPlayer(exoPlayer);
-
-        MediaItem mediaItem = MediaItem.fromUri(Uri.fromFile(file));
-        exoPlayer.setMediaItem(mediaItem);
-
-        exoPlayer.addListener(new Player.Listener() {
-            @Override
-            public void onPlaybackStateChanged(int playbackState) {
-                if (playbackState == Player.STATE_READY) {
-                    AndroidUtils.runOnUiThread(() -> {
-                        if (isAttachedToWindow() && exoPlayer != null) {
-                            onModeLoaded(Mode.MOVIE, root);
-                            checkAudioTracks();
-                        }
-                    });
-                } else if (playbackState == Player.STATE_ENDED) {
-                    AndroidUtils.runOnUiThread(() -> {
-                        if (isAttachedToWindow() && exoPlayer != null) {
-                            if (ChanSettings.videoAutoLoop.get()) {
-                                exoPlayer.seekTo(0);
-                                exoPlayer.play();
-                            } else {
-                                if (playerPlayPause != null) {
-                                    playerPlayPause.setImageResource(R.drawable.ic_play_circle_filled_white);
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-
-            @Override
-            public void onIsPlayingChanged(boolean isPlaying) {
-                AndroidUtils.runOnUiThread(() -> {
-                    if (isAttachedToWindow() && exoPlayer != null) {
-                        if (playerPlayPause != null) {
-                            playerPlayPause.setImageResource(isPlaying ? R.drawable.ic_pause_circle_filled_white : R.drawable.ic_play_circle_filled_white);
-                        }
-                        if (isPlaying) {
-                            handler.post(updateTimeTask);
-                        } else {
-                            handler.removeCallbacks(updateTimeTask);
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onPlayerError(@NonNull PlaybackException error) {
-                // If libvpx rejected the bitstream (e.g. 10-bit / Profile 2),
-                // retry once using the Android software Codec2 VP9 decoder
-                if (!vp9FallbackAttempted
-                        && (error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED
-                            || error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED)) {
-                    vp9FallbackAttempted = true;
-                    handler.removeCallbacks(updateTimeTask);
-                    handler.removeCallbacks(hideControllerTask);
-                    if (exoPlayer != null) {
-                        exoPlayer.release();
-                        exoPlayer = null;
-                    }
-                    startSoftwareVp9Player(file);
-                    return;
-                }
-                onVideoError();
-            }
-        });
-
-        isMuted = ChanSettings.videoDefaultMuted.get();
-        exoPlayer.setVolume(isMuted ? 0f : 1f);
-        exoPlayer.setPlayWhenReady(true);
-        exoPlayer.prepare();
-
-        callback.onVideoLoaded(this);
-    }
-
-    // Retries VP9 playback using c2.android.vp9.decoder (AOSP software Codec2).
-    // This decoder should support all VP9 profiles including 10-bit
-    // Called once on decoder failure.
-    private void startSoftwareVp9Player(File file) {
-        MediaCodecSelector softwareVp9Selector = (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
-            if (MimeTypes.VIDEO_VP9.equals(mimeType)) {
-                List<MediaCodecInfo> all = MediaCodecSelector.DEFAULT.getDecoderInfos(
-                        mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
-                List<MediaCodecInfo> filtered = new ArrayList<>();
-                for (MediaCodecInfo info : all) {
-                       // This excludes hardware OMX decoders (OMX.*) which may not support 10-bit.
-                    if (info.name.startsWith("c2.android.")) {
-                        filtered.add(info);
-                    }
-                }
-                return filtered;
-            }
-            return MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
-        };
-
-        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(getContext())
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-                .setMediaCodecSelector(softwareVp9Selector)
-                .setEnableDecoderFallback(true);
-
-        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                        50000,   // minBuffer: keep 50s buffered
-                        120000,  // maxBuffer: pre-fetch up to 120s ahead
-                        5000,    // bufferForPlayback
-                        10000)   // bufferForPlaybackAfterRebuffer
-                .build();
-
-        exoPlayer = new ExoPlayer.Builder(new NoMusicServiceCommandContext(getContext()), renderersFactory)
-                .setLoadControl(loadControl)
-                .build();
-
-        if (exoPlayerView != null) {
-            exoPlayerView.setPlayer(exoPlayer);
-        }
-
         exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)));
 
         exoPlayer.addListener(new Player.Listener() {
@@ -763,6 +696,24 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
 
             @Override
             public void onPlayerError(@NonNull PlaybackException error) {
+                if (error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED
+                        || error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED) {
+                    ChanSettings.Vp9ExtensionMode extMode = ChanSettings.vp9ExtensionMode.get();
+                    int maxStage = extMode == ChanSettings.Vp9ExtensionMode.DEFAULT ? 2
+                                 : extMode == ChanSettings.Vp9ExtensionMode.PREFER  ? 1
+                                 : 0;
+                    if (vp9FallbackStage < maxStage) {
+                        vp9FallbackStage++;
+                        handler.removeCallbacks(updateTimeTask);
+                        handler.removeCallbacks(hideControllerTask);
+                        if (exoPlayer != null) {
+                            exoPlayer.release();
+                            exoPlayer = null;
+                        }
+                        startExoPlayer(file);
+                        return;
+                    }
+                }
                 onVideoError();
             }
         });

@@ -194,6 +194,30 @@ public class MediaSettingsController extends SettingsController implements
                     R.string.setting_video_timeout,
                     R.string.setting_video_timeout_description));
 
+            List<ListSettingView.Item<?>> vp9ExtModes = new ArrayList<>();
+            for (ChanSettings.Vp9ExtensionMode mode : ChanSettings.Vp9ExtensionMode.values()) {
+                int name = 0;
+                switch (mode) {
+                    case DEFAULT: name = R.string.setting_vp9_extension_mode_default; break;
+                    case PREFER: name = R.string.setting_vp9_extension_mode_prefer; break;
+                    case OFF: name = R.string.setting_vp9_extension_mode_off; break;
+                }
+                vp9ExtModes.add(new ListSettingView.Item<>(getString(name), mode));
+            }
+            video.add(new ListSettingView<>(this, ChanSettings.vp9ExtensionMode,
+                    R.string.setting_vp9_extension_mode, vp9ExtModes));
+
+            video.add(new BooleanSettingView(this,
+                    ChanSettings.vp9DisableSeekForCues,
+                    R.string.setting_vp9_disable_seek_for_cues,
+                    R.string.setting_vp9_disable_seek_for_cues_description));
+
+            video.add(new IntegerSettingView(this,
+                    ChanSettings.videoBufferForPlayback,
+                    R.string.setting_video_buffer_for_playback,
+                    R.string.setting_video_buffer_for_playback_description,
+                    100, 10000));
+
             groups.add(video);
         }
 
