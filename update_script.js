@@ -79,7 +79,7 @@ const updateJson  = path.join(root, 'docs', 'update_api.json');
                 date: `${today}T00:00:00`,
                 message_html: `<h2>Clover ${versionName} is available</h2>A new version of Clover is available.<br><br>See the <a href="${releaseUrl}">release notes</a> for details.`,
                 apk: {
-                    default: { url: apkUrl }
+                    stable: { url: apkUrl }
                 }
             }
         ],
