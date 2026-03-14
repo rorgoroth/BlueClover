@@ -587,10 +587,10 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
 
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                        30000,
-                        90000,
-                        2500,
-                        5000
+                        50000,   // minBuffer: keep 50s buffered before slowing down fetching
+                        120000,  // maxBuffer: pre-fetch up to 120s ahead
+                        5000,    // bufferForPlayback
+                        10000    // bufferForPlaybackAfterRebuffer
                 )
                 .build();
 
@@ -701,10 +701,10 @@ public class MultiImageView extends FrameLayout implements View.OnClickListener,
 
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                        DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
-                        DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
-                        500,
-                        DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                        50000,   // minBuffer: keep 50s buffered
+                        120000,  // maxBuffer: pre-fetch up to 120s ahead
+                        5000,    // bufferForPlayback
+                        10000)   // bufferForPlaybackAfterRebuffer
                 .build();
 
         exoPlayer = new ExoPlayer.Builder(new NoMusicServiceCommandContext(getContext()), renderersFactory)
