@@ -47,7 +47,7 @@ public class DrawerWidthAdjustingLayout extends DrawerLayout {
         int widthSize = MeasureSpec.getSize(widthMeasureSpec);
 //        int heightSize = MeasureSpec.getSize(heightMeasureSpec);
 
-        View drawer = findViewById(R.id.drawer);
+        View drawer = findViewById(R.id.drawer_panel);
 
         int width = Math.min(widthSize - dp(56), dp(56) * 6);
         if (drawer.getLayoutParams().width != width) {

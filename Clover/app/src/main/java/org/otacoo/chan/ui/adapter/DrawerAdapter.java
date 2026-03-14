@@ -130,8 +130,8 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                     applyOrder();
                     return true;
                 } else if (fromType == TYPE_SEARCH_PIN && toType == TYPE_SEARCH_PIN) {
-                    int fromIndex = from - 2;
-                    int toIndex = to - 2;
+                    int fromIndex = from - getSearchPinOffset();
+                    int toIndex = to - getSearchPinOffset();
                     ChanSettings.PinnedSearch item = pinnedSearches.remove(fromIndex);
                     pinnedSearches.add(toIndex, item);
                     notifyItemMoved(from, to);
@@ -148,7 +148,7 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 if (type == TYPE_PIN) {
                     callback.onPinRemoved(pins.get(pos - getPinOffset()));
                 } else if (type == TYPE_SEARCH_PIN) {
-                    pinnedSearches.remove(pos - 2);
+                    pinnedSearches.remove(pos - getSearchPinOffset());
                     ChanSettings.savePinnedSearches(pinnedSearches);
                     notifyItemRemoved(pos);
                     if (pinnedSearches.isEmpty()) {
@@ -160,13 +160,16 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
     private int getPinOffset() {
-        int offset = 1; // TYPE_SETTINGS
-        offset += 1; // TYPE_HEADER
+        int offset = ChanSettings.toolbarBottom.get() ? 1 : 2; // HEADER only, or SETTINGS+HEADER
         if (showPinnedSearches() && !pinnedSearches.isEmpty()) {
             offset += pinnedSearches.size();
             offset += 1; // TYPE_DIVIDER
         }
         return offset;
+    }
+
+    private int getSearchPinOffset() {
+        return ChanSettings.toolbarBottom.get() ? 1 : 2;
     }
 
     private boolean showPinnedSearches() {
@@ -209,9 +212,9 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 break;
             case TYPE_SEARCH_PIN:
                 SearchPinViewHolder searchPinHolder = (SearchPinViewHolder) holder;
-                int searchIndex = position - 2;
+                int searchIndex = position - getSearchPinOffset();
                 if (searchIndex >= 0 && searchIndex < pinnedSearches.size()) {
-                    ChanSettings.PinnedSearch search = pinnedSearches.get(searchIndex); // 0=Settings, 1=Header
+                    ChanSettings.PinnedSearch search = pinnedSearches.get(searchIndex);
                     String displayTerm = Uri.decode(search.searchTerm);
                     searchPinHolder.textView.setText(">>>/" + search.boardCode + "/" + displayTerm);
                     searchPinHolder.image.setVisibility(View.VISIBLE);
@@ -244,7 +247,7 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
     @Override
     public int getItemCount() {
-        int count = 1; // SETTINGS
+        int count = ChanSettings.toolbarBottom.get() ? 0 : 1; // SETTINGS only when not bottom toolbar
         count += 1; // HEADER
         if (showPinnedSearches() && !pinnedSearches.isEmpty()) {
             count += pinnedSearches.size();
@@ -263,7 +266,7 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 return pins.get(index).id + 1000;
             }
         } else if (type == TYPE_SEARCH_PIN) {
-            int index = position - 2;
+            int index = position - getSearchPinOffset();
             if (index >= 0 && index < pinnedSearches.size()) {
                 return pinnedSearches.get(index).hashCode();
             }
@@ -273,18 +276,33 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
     @Override
     public int getItemViewType(int position) {
-        if (position == 0) return TYPE_SETTINGS;
-        if (position == 1) return TYPE_HEADER;
-        int current = 2; // SETTINGS + HEADER
-        if (showPinnedSearches() && !pinnedSearches.isEmpty()) {
-            if (position < current + pinnedSearches.size()) {
-                return TYPE_SEARCH_PIN;
+        if (ChanSettings.toolbarBottom.get()) {
+            // Settings row is a fixed footer outside the RecyclerView
+            if (position == 0) return TYPE_HEADER;
+            int current = 1; // HEADER
+            if (showPinnedSearches() && !pinnedSearches.isEmpty()) {
+                if (position < current + pinnedSearches.size()) {
+                    return TYPE_SEARCH_PIN;
+                }
+                current += pinnedSearches.size();
+                if (position == current) return TYPE_DIVIDER;
+                current += 1;
             }
-            current += pinnedSearches.size();
-            if (position == current) return TYPE_DIVIDER;
-            current += 1;
+            return TYPE_PIN;
+        } else {
+            if (position == 0) return TYPE_SETTINGS;
+            if (position == 1) return TYPE_HEADER;
+            int current = 2; // SETTINGS + HEADER
+            if (showPinnedSearches() && !pinnedSearches.isEmpty()) {
+                if (position < current + pinnedSearches.size()) {
+                    return TYPE_SEARCH_PIN;
+                }
+                current += pinnedSearches.size();
+                if (position == current) return TYPE_DIVIDER;
+                current += 1;
+            }
+            return TYPE_PIN;
         }
-        return TYPE_PIN;
     }
 
     public void onPinsChanged(List<Pin> pins) {
@@ -396,8 +414,9 @@ public class DrawerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
             itemView.setOnClickListener(v -> {
                 int pos = getBindingAdapterPosition();
-                if (pos >= 2 && pos < 2 + pinnedSearches.size()) {
-                    callback.onPinnedSearchClicked(pinnedSearches.get(pos - 2));
+                int spOffset = getSearchPinOffset();
+                if (pos >= spOffset && pos < spOffset + pinnedSearches.size()) {
+                    callback.onPinnedSearchClicked(pinnedSearches.get(pos - spOffset));
                 }
             });
         }

@@ -319,7 +319,7 @@ public class NavigationControllerContainerLayout extends FrameLayout {
         @Override
         public void run() {
             if (!tracking) {
-                throw new IllegalStateException("fling animation running while not tracking");
+                return;
             }
 
             boolean finished = false;

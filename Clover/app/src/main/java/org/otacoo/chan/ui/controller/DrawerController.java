@@ -19,6 +19,7 @@ package org.otacoo.chan.ui.controller;
 
 import static org.otacoo.chan.Chan.inject;
 import static org.otacoo.chan.ui.theme.ThemeHelper.theme;
+import static org.otacoo.chan.utils.AndroidUtils.ROBOTO_MEDIUM;
 import static org.otacoo.chan.utils.AndroidUtils.dp;
 import static org.otacoo.chan.utils.AndroidUtils.fixSnackbarText;
 import static org.otacoo.chan.utils.AndroidUtils.getAttrColor;
@@ -34,6 +35,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -75,6 +77,7 @@ import de.greenrobot.event.EventBus;
 public class DrawerController extends Controller implements DrawerAdapter.Callback {
     protected FrameLayout container;
     protected DrawerLayout drawerLayout;
+    protected View drawerPanel;
     protected SwipeRefreshLayout drawer;
     protected RecyclerView recyclerView;
     protected DrawerAdapter drawerAdapter;
@@ -103,6 +106,7 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
         container = view.findViewById(R.id.container);
         drawerLayout = view.findViewById(R.id.drawer_layout);
         drawerLayout.setDrawerShadow(R.drawable.drawer_shadow, Gravity.LEFT);
+        drawerPanel = view.findViewById(R.id.drawer_panel);
         drawer = view.findViewById(R.id.drawer);
         drawer.setBackgroundColor(getAttrColor(context, R.attr.backcolor));
 
@@ -122,6 +126,16 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
 
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(drawerAdapter.getItemTouchHelperCallback());
         itemTouchHelper.attachToRecyclerView(recyclerView);
+
+        if (ChanSettings.toolbarBottom.get()) {
+            View footer = view.findViewById(R.id.drawer_settings_footer);
+            footer.setVisibility(View.VISIBLE);
+            theme().settingsDrawable.apply((ImageView) footer.findViewById(R.id.image_settings));
+            theme().historyDrawable.apply((ImageView) footer.findViewById(R.id.image_history));
+            ((TextView) footer.findViewById(R.id.text_settings)).setTypeface(ROBOTO_MEDIUM);
+            footer.findViewById(R.id.settings).setOnClickListener(v -> openSettings());
+            footer.findViewById(R.id.image_history).setOnClickListener(v -> openHistory());
+        }
 
         org.otacoo.chan.core.net.Chan8PowNotifier.setRootView(drawerLayout);
 
@@ -143,14 +157,14 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
 
     public void onMenuClicked() {
         if (getMainToolbarNavigationController().getTop().navigation.hasDrawer) {
-            drawerLayout.openDrawer(drawer);
+            drawerLayout.openDrawer(drawerPanel);
         }
     }
 
     @Override
     public boolean onBack() {
-        if (drawerLayout.isDrawerOpen(drawer)) {
-            drawerLayout.closeDrawer(drawer);
+        if (drawerLayout.isDrawerOpen(drawerPanel)) {
+            drawerLayout.closeDrawer(drawerPanel);
             return true;
         } else {
             return super.onBack();
@@ -160,7 +174,7 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
     @Override
     public void onPinClicked(Pin pin) {
         openPin(pin);
-        drawerLayout.closeDrawer(drawer);
+        drawerLayout.closeDrawer(drawerPanel);
     }
 
     @Override
@@ -197,7 +211,7 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
         loadable.searchQuery = Uri.decode(search.searchTerm);
 
         openPinnedSearch(finalBoard, loadable);
-        drawerLayout.closeDrawer(drawer);
+        drawerLayout.closeDrawer(drawerPanel);
     }
 
     private void openPinnedSearch(Board board, Loadable loadable) {
@@ -426,7 +440,7 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
 
     public void onEvent(WatchManager.PinAddedMessage message) {
         drawerAdapter.onPinAdded(message.pin);
-        drawerLayout.openDrawer(drawer);
+        drawerLayout.openDrawer(drawerPanel);
         updateBadge();
     }
 
@@ -449,7 +463,7 @@ public class DrawerController extends Controller implements DrawerAdapter.Callba
     public void setDrawerEnabled(boolean enabled) {
         drawerLayout.setDrawerLockMode(enabled ? DrawerLayout.LOCK_MODE_UNLOCKED : DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.LEFT);
         if (!enabled) {
-            drawerLayout.closeDrawer(drawer);
+            drawerLayout.closeDrawer(drawerPanel);
         }
     }
 
