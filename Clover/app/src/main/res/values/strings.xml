@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     <string name="remove">Remove</string>
     <string name="undo">Undo</string>
     <string name="save">Save</string>
+    <string name="clear">Clear</string>
 
     <string name="pin_search_title">Pin Catalog Search</string>
     <string name="pin_search_term_hint">Search term (e.g. game)</string>
@@ -204,6 +205,26 @@ Re-enable this permission in the app settings if you permanently disabled it."</
     <string name="setup_site_login_description_enabled">Logged in</string>
     <string name="setup_site_login_description_disabled">Off</string>
     <string name="setup_site_login_description_valid">Valid</string>
+
+    <!-- 4chan Verification group -->
+    <string name="setup_site_4chan_verification_group">Verification</string>
+    <string name="setup_site_4chan_verify_email">Verify your email</string>
+    <string name="setup_site_4chan_verify_email_description">Open email verification page</string>
+    <string name="setup_site_4chan_verify_email_warning_title">All session cookies will be cleared</string>
+    <string name="setup_site_4chan_verify_email_warning_body">Opening this page will clear all cookies including Cloudflare clearance and fingerprinting cookies. \n\nDo you want to continue?</string>
+    <string name="setup_site_4chan_verify_email_warning_open">Open</string>
+    <string name="setup_site_4chan_enter_token">Enter verification token</string>
+    <string name="setup_site_4chan_enter_token_description">Paste verification link or token</string>
+
+    <!-- 4chan_pass cookie option -->
+    <string name="setup_site_4chan_pass_cookie_name">4chan_pass cookie</string>
+    <string name="setup_site_4chan_pass_cookie_set">Cookie is set</string>
+    <string name="setup_site_4chan_pass_cookie_not_set">Not set</string>
+    <string name="setup_site_4chan_pass_cookie_dialog_title">4chan_pass cookie</string>
+    <string name="setup_site_4chan_pass_cookie_dialog_message">The value of the 4chan_pass cookie used for authentication. Changes are applied to the cookie store immediately.</string>
+    <string name="setup_site_4chan_pass_cookie_hint">Cookie value…</string>
+    <string name="setup_site_4chan_pass_cookie_saved">4chan_pass cookie saved</string>
+    <string name="setup_site_4chan_pass_cookie_cleared">4chan_pass cookie cleared</string>
 
     <string name="setup_board_title">Configure boards of %s</string>
     <string name="setup_board_empty">No boards added</string>

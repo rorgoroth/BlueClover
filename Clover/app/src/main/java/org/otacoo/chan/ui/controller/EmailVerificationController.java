@@ -30,6 +30,7 @@ import android.widget.Toast;
 import org.otacoo.chan.controller.Controller;
 import org.otacoo.chan.core.di.NetModule;
 import org.otacoo.chan.core.site.Site;
+import org.otacoo.chan.core.site.sites.chan4.Chan4;
 import org.otacoo.chan.ui.helper.RefreshUIMessage;
 import org.otacoo.chan.ui.view.AuthWebView;
 import org.otacoo.chan.utils.Logger;
@@ -92,12 +93,11 @@ public class EmailVerificationController extends Controller {
     private void setupWebView() {
         if (!alive) return;
 
-        // KurobaEx pattern: clear all stale cookies first, then create the WebView.
-        // The signin page sets its own cookies during Cloudflare/Turnstile/antibot flow.
-        // Stale cookies from previous browsing can conflict with form validation.
+        // Clear stale cookies before creating the WebView so the signin page gets a clean session.
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.removeAllCookies(success -> {
             Logger.d(TAG, "removeAllCookies result=" + success);
+            cookieManager.flush();
             AuthWebView.runOnWebViewThread(this::createAndLoadWebView);
         });
     }
@@ -116,7 +116,6 @@ public class EmailVerificationController extends Controller {
             cookieManager.setAcceptThirdPartyCookies(webView, true);
         }
 
-        // Additional settings matching KurobaEx's OpenUrlInWebViewController
         WebSettings settings = webView.getSettings();
         settings.setDatabaseEnabled(true);
         settings.setUseWideViewPort(true);
@@ -212,7 +211,26 @@ public class EmailVerificationController extends Controller {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        
+
+        // If this was a 4chan verification session, persist any 4chan_pass cookie that was
+        // set by the site so it survives future CookieManager clears.
+        if (site instanceof Chan4) {
+            Chan4 chan4 = (Chan4) site;
+            String sysCookies = CookieManager.getInstance().getCookie("https://sys.4chan.org");
+            if (sysCookies != null) {
+                for (String part : sysCookies.split(";\\s*")) {
+                    String trimmed = part.trim();
+                    if (trimmed.startsWith("4chan_pass=")) {
+                        String value = trimmed.substring("4chan_pass=".length());
+                        if (!value.isEmpty()) {
+                            chan4.getPassWebCookie().set(value);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             CookieManager.getInstance().flush();
         }

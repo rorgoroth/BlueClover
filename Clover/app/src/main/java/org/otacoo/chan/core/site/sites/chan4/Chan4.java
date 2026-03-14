@@ -390,15 +390,29 @@ public class Chan4 extends SiteBase {
                     cookieManager.setCookie(boardsDomain, cookie);
                 }
             } else {
-                // Clear only pass cookies, do not wipe Cloudflare/captcha cookies.
-                String expiredPassId = "pass_id=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-                String expiredPassEnabled = "pass_enabled=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-                String domain = sys.scheme() + "://" + sys.host() + "/";
-                String boardsDomain = boards.scheme() + "://" + boards.host() + "/";
-                cookieManager.setCookie(domain, expiredPassId);
-                cookieManager.setCookie(domain, expiredPassEnabled);
-                cookieManager.setCookie(boardsDomain, expiredPassId);
-                cookieManager.setCookie(boardsDomain, expiredPassEnabled);
+                // Only expire pass cookies if the WebView doesn't already have a valid 4chan_pass.
+                String sysC = cookieManager.getCookie("https://sys.4chan.org");
+                boolean hasValidPassInWebView = sysC != null && sysC.contains("4chan_pass=");
+                if (!hasValidPassInWebView) {
+                    String expiredPassId = "pass_id=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+                    String expiredPassEnabled = "pass_enabled=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+                    String domain = sys.scheme() + "://" + sys.host() + "/";
+                    String boardsDomain = boards.scheme() + "://" + boards.host() + "/";
+                    cookieManager.setCookie(domain, expiredPassId);
+                    cookieManager.setCookie(domain, expiredPassEnabled);
+                    cookieManager.setCookie(boardsDomain, expiredPassId);
+                    cookieManager.setCookie(boardsDomain, expiredPassEnabled);
+                }
+            }
+
+            // Inject the persisted 4chan_pass cookie so it survives CookieManager clears and app restarts.
+            String savedChanPass = passWebCookie.get();
+            if (!savedChanPass.isEmpty()) {
+                String chanPassCookieStr = "4chan_pass=" + savedChanPass + ";";
+                cookieManager.setCookie(sys.scheme() + "://" + sys.host() + "/", chanPassCookieStr);
+                cookieManager.setCookie(boards.scheme() + "://" + boards.host() + "/", chanPassCookieStr);
+                cookieManager.setCookie("https://sys.4channel.org/", chanPassCookieStr);
+                cookieManager.setCookie("https://boards.4channel.org/", chanPassCookieStr);
             }
 
             cookieManager.flush();
@@ -537,6 +551,7 @@ public class Chan4 extends SiteBase {
     private final StringSetting passUser;
     private final StringSetting passPass;
     private final StringSetting passToken;
+    private final StringSetting passWebCookie;
     private final BooleanSetting showCooldownToast;
     private final BooleanSetting singleViewCaptchas;
 
@@ -548,6 +563,7 @@ public class Chan4 extends SiteBase {
         // token was renamed, before it meant the username, now it means the token returned
         // from the server that the cookie is set to.
         passToken = new StringSetting(p, "preference_pass_id", "");
+        passWebCookie = new StringSetting(p, "preference_4chan_pass_cookie", "");
         showCooldownToast = new BooleanSetting(p, "preference_4chan_cooldown_toast", false);
         singleViewCaptchas = new BooleanSetting(p, "preference_4chan_single_view_captchas", false);
     }
@@ -571,6 +587,31 @@ public class Chan4 extends SiteBase {
 
     public BooleanSetting getSingleViewCaptchas() {
         return singleViewCaptchas;
+    }
+
+    public StringSetting getPassWebCookie() {
+        return passWebCookie;
+    }
+
+    public void syncPassCookieToCookieManager() {
+        String value = passWebCookie.get();
+        String[] domains = {
+                "https://sys.4chan.org/", "https://boards.4chan.org/",
+                "https://sys.4channel.org/", "https://boards.4channel.org/"
+        };
+        CookieManager cm = CookieManager.getInstance();
+        if (value.isEmpty()) {
+            String expired = "4chan_pass=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+            for (String domain : domains) {
+                cm.setCookie(domain, expired);
+            }
+        } else {
+            String cookieStr = "4chan_pass=" + value + ";";
+            for (String domain : domains) {
+                cm.setCookie(domain, cookieStr);
+            }
+        }
+        cm.flush();
     }
 
     @Override

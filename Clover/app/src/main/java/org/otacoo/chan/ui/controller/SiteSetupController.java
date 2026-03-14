@@ -33,6 +33,7 @@ import org.otacoo.chan.core.presenter.SiteSetupPresenter;
 import org.otacoo.chan.core.settings.BooleanSetting;
 import org.otacoo.chan.core.settings.OptionsSetting;
 import org.otacoo.chan.core.site.Site;
+import org.otacoo.chan.core.site.sites.chan4.Chan4;
 import org.otacoo.chan.core.site.SiteSetting;
 import org.otacoo.chan.ui.settings.BooleanSettingView;
 import org.otacoo.chan.ui.settings.LinkSettingView;
@@ -56,6 +57,7 @@ public class SiteSetupController extends SettingsController implements SiteSetup
     private LinkSettingView boardsLink;
     private LinkSettingView loginLink;
     private LinkSettingView verificationLink;
+    private LinkSettingView passCookieLink;
 
     public SiteSetupController(Context context) {
         super(context);
@@ -91,6 +93,32 @@ public class SiteSetupController extends SettingsController implements SiteSetup
     public void onShow() {
         super.onShow();
         presenter.show();
+        // Re-read the live 4chan_pass value from CookieManager every time this screen is shown.
+        // This picks up cookies set by "Enter verification token", the Cookie Manager, or any
+        // other source — keeping the setting and the UI description in sync with the truth.
+        if (site != null && "4chan".equals(site.name()) && passCookieLink != null) {
+            Chan4 chan4 = (Chan4) site;
+            android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+            String livePass = extractChanPassValue(cm.getCookie("https://sys.4chan.org"));
+            if (!livePass.equals(chan4.getPassWebCookie().get())) {
+                chan4.getPassWebCookie().set(livePass);
+            }
+            passCookieLink.setDescription(livePass.isEmpty()
+                    ? context.getString(R.string.setup_site_4chan_pass_cookie_not_set)
+                    : context.getString(R.string.setup_site_4chan_pass_cookie_set));
+        }
+    }
+
+    private static String extractChanPassValue(String cookieHeader) {
+        if (cookieHeader == null) return "";
+        for (String part : cookieHeader.split(";\\s*")) {
+            int eq = part.indexOf('=');
+            if (eq < 0) continue;
+            if ("4chan_pass".equals(part.substring(0, eq).trim())) {
+                return part.substring(eq + 1).trim();
+            }
+        }
+        return "";
     }
 
     @Override
@@ -200,28 +228,45 @@ public class SiteSetupController extends SettingsController implements SiteSetup
         
         // Add email verification for 4chan
         if (site.name().equals("4chan")) {
-            SettingsGroup verification = new SettingsGroup("Verification");
-            
+            Chan4 chan4site = (Chan4) site;
+            SettingsGroup verification = new SettingsGroup(context.getString(R.string.setup_site_4chan_verification_group));
+
             LinkSettingView verifyEmailLink = new LinkSettingView(
                     this,
-                    "Verify your email",
-                    "Open email verification page",
-                    v -> {
-                        EmailVerificationController verificationController = new EmailVerificationController(context);
-                        verificationController.setSite(site);
-                        navigationController.pushController(verificationController);
-                    }
+                    context.getString(R.string.setup_site_4chan_verify_email),
+                    context.getString(R.string.setup_site_4chan_verify_email_description),
+                    v -> new AlertDialog.Builder(context)
+                            .setTitle(R.string.setup_site_4chan_verify_email_warning_title)
+                            .setMessage(R.string.setup_site_4chan_verify_email_warning_body)
+                            .setPositiveButton(R.string.setup_site_4chan_verify_email_warning_open, (d, w) -> {
+                                EmailVerificationController verificationController = new EmailVerificationController(context);
+                                verificationController.setSite(site);
+                                navigationController.pushController(verificationController);
+                            })
+                            .setNegativeButton(R.string.cancel, null)
+                            .show()
             );
             verification.add(verifyEmailLink);
-            
+
             LinkSettingView enterTokenLink = new LinkSettingView(
                     this,
-                    "Enter verification token",
-                    "Paste verification link or token",
+                    context.getString(R.string.setup_site_4chan_enter_token),
+                    context.getString(R.string.setup_site_4chan_enter_token_description),
                     v -> showVerificationTokenDialog()
             );
             verification.add(enterTokenLink);
-            
+
+            String currentPassCookie = chan4site.getPassWebCookie().get();
+            passCookieLink = new LinkSettingView(
+                    this,
+                    context.getString(R.string.setup_site_4chan_pass_cookie_name),
+                    currentPassCookie.isEmpty()
+                            ? context.getString(R.string.setup_site_4chan_pass_cookie_not_set)
+                            : context.getString(R.string.setup_site_4chan_pass_cookie_set),
+                    v -> showPassCookieDialog()
+            );
+            verification.add(passCookieLink);
+
             groups.add(verification);
         }
     }
@@ -252,6 +297,52 @@ public class SiteSetupController extends SettingsController implements SiteSetup
         groups.add(general);
     }
     
+    private void showPassCookieDialog() {
+        Chan4 chan4 = (Chan4) site;
+        String currentValue = chan4.getPassWebCookie().get();
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle(R.string.setup_site_4chan_pass_cookie_dialog_title);
+        builder.setMessage(R.string.setup_site_4chan_pass_cookie_dialog_message);
+
+        final EditText input = new EditText(context);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+        input.setHint(R.string.setup_site_4chan_pass_cookie_hint);
+        if (!currentValue.isEmpty()) {
+            input.setText(currentValue);
+            input.setSelection(currentValue.length());
+        }
+        builder.setView(input);
+
+        builder.setPositiveButton(R.string.save, (dialog, which) -> {
+            String newValue = input.getText().toString().trim();
+            chan4.getPassWebCookie().set(newValue);
+            chan4.syncPassCookieToCookieManager();
+            if (passCookieLink != null) {
+                passCookieLink.setDescription(context.getString(newValue.isEmpty()
+                        ? R.string.setup_site_4chan_pass_cookie_not_set
+                        : R.string.setup_site_4chan_pass_cookie_set));
+            }
+            Toast.makeText(context,
+                    newValue.isEmpty()
+                            ? R.string.setup_site_4chan_pass_cookie_cleared
+                            : R.string.setup_site_4chan_pass_cookie_saved,
+                    Toast.LENGTH_SHORT).show();
+        });
+
+        builder.setNeutralButton(R.string.clear, (dialog, which) -> {
+            chan4.getPassWebCookie().set("");
+            chan4.syncPassCookieToCookieManager();
+            if (passCookieLink != null) {
+                passCookieLink.setDescription(context.getString(R.string.setup_site_4chan_pass_cookie_not_set));
+            }
+            Toast.makeText(context, R.string.setup_site_4chan_pass_cookie_cleared, Toast.LENGTH_SHORT).show();
+        });
+
+        builder.setNegativeButton(R.string.cancel, null);
+        builder.show();
+    }
+
     private void showVerificationTokenDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle("Email Verification");

@@ -41,6 +41,7 @@ import androidx.viewpager.widget.ViewPager;
 import org.otacoo.chan.R;
 import org.otacoo.chan.core.repository.SiteRepository;
 import org.otacoo.chan.core.site.Site;
+import org.otacoo.chan.core.site.sites.chan4.Chan4;
 import org.otacoo.chan.ui.controller.StyledToolbarNavigationController;
 import org.otacoo.chan.ui.view.ViewPagerAdapter;
 import org.otacoo.chan.utils.AndroidUtils;
@@ -197,6 +198,15 @@ public class CookieManagerController extends StyledToolbarNavigationController i
         }
     }
 
+    private void syncChan4PassToSetting(String value) {
+        for (Site s : sites) {
+            if (s instanceof Chan4) {
+                ((Chan4) s).getPassWebCookie().set(value != null ? value : "");
+                break;
+            }
+        }
+    }
+
     private void showAddCookieDialog() {
         Site site = sites.get(pager.getCurrentItem());
         String rootUrl = site.endpoints().root().toString();
@@ -232,6 +242,9 @@ public class CookieManagerController extends StyledToolbarNavigationController i
                             cm.setCookie(domain, name + "=" + val);
                         }
                         cm.flush();
+                        if ("4chan_pass".equals(name)) {
+                            syncChan4PassToSetting(val);
+                        }
                         adapter.notifyDataSetChanged();
                     }
                 })
@@ -304,6 +317,9 @@ public class CookieManagerController extends StyledToolbarNavigationController i
                                     cookieManager.setCookie(domain, nameStr + "=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
                                 }
                                 cookieManager.flush();
+                                if ("4chan_pass".equals(nameStr)) {
+                                    syncChan4PassToSetting("");
+                                }
                                 notifyDataSetChanged();
                             })
                             .setNegativeButton(R.string.cancel, null)
@@ -329,6 +345,9 @@ public class CookieManagerController extends StyledToolbarNavigationController i
                             cm.setCookie(domain, name + "=" + newVal);
                         }
                         cm.flush();
+                        if ("4chan_pass".equals(name)) {
+                            syncChan4PassToSetting(newVal);
+                        }
                         notifyDataSetChanged();
                     })
                     .setNegativeButton(R.string.cancel, null)

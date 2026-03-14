@@ -900,7 +900,31 @@ public class NewCaptchaLayout extends WebView implements AuthenticationLayoutInt
         AndroidUtils.runOnUiThread(() -> {
             showingOverlay = false;  // allow hardReset to proceed past the guard
             CookieManager cm = CookieManager.getInstance();
-            cm.removeAllCookies(null);
+
+            // Preserve pass cookies so the user's authenticated session survives the reset.
+            // 4chan_pass must never be wiped by a captcha session reset.
+            String[] passPreserveDomains = {
+                    "https://sys.4chan.org", "https://boards.4chan.org",
+                    "https://sys.4channel.org", "https://boards.4channel.org"
+            };
+            java.util.List<String[]> savedPassCookies = new java.util.ArrayList<>();
+            for (String domain : passPreserveDomains) {
+                String existing = cm.getCookie(domain);
+                if (existing == null) continue;
+                for (String part : existing.split(";\\s*")) {
+                    String name = part.contains("=") ? part.substring(0, part.indexOf('=')).trim() : part.trim();
+                    if ("4chan_pass".equals(name)) {
+                        savedPassCookies.add(new String[]{domain, part.trim()});
+                    }
+                }
+            }
+
+            cm.removeAllCookies(success -> {
+                for (String[] entry : savedPassCookies) {
+                    cm.setCookie(entry[0], entry[1]);
+                }
+                cm.flush();
+            });
             cm.flush();
 
             evaluateJavascript("localStorage.clear(); sessionStorage.clear();", null);
