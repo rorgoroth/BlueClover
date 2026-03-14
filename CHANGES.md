@@ -1,3 +1,7 @@
+## 2026-03-14 – v3.3.6
+
+- No changes, just to test updates work
+
 ## 2026-03-14 – v3.3.5
 
 - Increased video buffer size before a video starts playing, should help with stutters
