@@ -1,3 +1,19 @@
+## 2026-03-14 – v3.3.7
+
+- Fix an issue where the 4chan Email verification couldn't set any cookies
+- Improved 4chan_pass cookie syncing and preservation between the various options
+- **New option**: 4chan_pass cookie
+  - Added an option to set the pass cookie directly under Sites > 4chan (if you missed the cookie manager)
+- **New option:** VP9 decoder
+  - Allows to set different strategies for the VP9 decoder
+  - Add an option to set the video buffer before playback manually
+  - Recompiled the VP9 decoder, it should now support VP8, VP9, VP9 10-bit Profile 2
+- Increase default video buffers before they start playing
+- Bookmarks drawer buttons will now be fixed to the bottom when *Enable bottom toolbar* is enabled
+- Clover will no longer connect to a site if no boards for that site were added
+- Fix an issue where the app could crash when opening and image then switching to a different view very fast
+- Fix an issue with Storage permissions throwing silent errors
+
 ## 2026-03-14 – v3.3.6
 
 - No changes, just to test updates work

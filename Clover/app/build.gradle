@@ -32,15 +32,16 @@ android {
         //noinspection ExpiredTargetSdkVersion
         multiDexEnabled = true
 
-        versionName = "v3.3.6"
+        versionName = "v3.3.7"
         // of the format XXYYZZ, where XX is major, YY is minor, ZZ is patch
         // (watch out for octal notation, never start with a 0)
-        versionCode = 30306
+        versionCode = 30307
     }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+        // desugaring added because of mindSdk24
         coreLibraryDesugaringEnabled = true
     }
 
